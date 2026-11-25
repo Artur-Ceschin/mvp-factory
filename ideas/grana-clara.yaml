@@ -1,0 +1,29 @@
+slug: grana-clara
+name: Grana Clara
+priority: 30
+status: queued
+pitch: Conecte seu banco pelo Open Finance e veja para onde vai seu dinheiro, com categorias automáticas e orçamento por categoria.
+audience: Brasileiros de 22 a 45 anos com conta digital (Nubank, Inter, Itaú etc.) que tentam controlar gastos em planilha e desistem.
+problem: Planilha exige lançar tudo à mão. Os apps de banco não juntam contas diferentes nem mostram orçamento por categoria de forma simples.
+pricing:
+  currency: brl
+  monthlyCents: 1490
+  freeTier: 1 conexão bancária, últimos 30 dias de transações categorizadas e resumo do mês.
+  proTier: Conexões ilimitadas, 12 meses de histórico, orçamento por categoria com alertas no app e insights mensais gerados por IA.
+activationEvent: transactions_synced
+features:
+  - Tela de consentimento clara (LGPD) antes de conectar — o que é lido (contas e transações), que é só leitura e como desconectar.
+  - Conectar banco com o widget Pluggy Connect (App.connectBank) usando a rota de connect token do app; guardar o itemId sob o usuário. Use sandbox quando o stage não for prod (veja /api/health).
+  - Sincronizar contas e transações (listAccounts e listTransactions desde 30 dias no free ou 365 no Pro) e guardar sob USER#<id>; ao terminar a primeira sincronização dispara transactions_synced.
+  - Categorização — usar a category do Pluggy quando houver e mapear para cerca de 12 categorias simples em pt-BR (Moradia, Mercado, Transporte, Restaurantes, Assinaturas etc.); o usuário pode recategorizar e a regra vale para o mesmo estabelecimento depois.
+  - Painel do mês com total de entradas e saídas, gastos por categoria e maiores gastos.
+  - Orçamento por categoria com barra de progresso e aviso ao passar de 80% (Pro).
+  - Desconectar banco remove o item no Pluggy (deleteItem) e apaga as transações guardadas.
+  - Sem Pluggy configurado (503 pluggy_disabled), oferecer importação de CSV (data, descrição, valor) como alternativa.
+integrations: [pluggy, bedrock, stripe]
+constraints:
+  - O app nunca pede nem guarda senha de banco; a conexão é feita só pelo widget da Pluggy.
+  - Sem movimentação de dinheiro e sem iniciação de pagamentos; só leitura.
+  - Os valores ficam em centavos inteiros e são exibidos em BRL com Intl.NumberFormat.
+outOfScope:
+  - Pix, pagamentos, investimentos, imposto de renda, app mobile, notificações por e-mail.

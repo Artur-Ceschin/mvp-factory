@@ -1,0 +1,149 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  MVP Factory bootstrap — GitHub OIDC role used by the factory workflow to deploy apps
+  (stacks named mvp-*), plus a monthly cost budget alert. Deploy once per AWS account.
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Description: owner/repo allowed to assume the role (e.g. artur/mvp-factory)
+  CreateOidcProvider:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "true"
+    Description: Set to false if the account already has the token.actions.githubusercontent.com provider.
+  MonthlyBudgetUsd:
+    Type: Number
+    Default: 50
+  BudgetEmail:
+    Type: String
+
+Conditions:
+  MakeOidc: !Equals [!Ref CreateOidcProvider, "true"]
+
+Resources:
+  GitHubOidc:
+    Type: AWS::IAM::OIDCProvider
+    Condition: MakeOidc
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+
+  FactoryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: mvp-factory-deployer
+      MaxSessionDuration: 7200
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepo}:ref:refs/heads/main
+      Policies:
+        - PolicyName: mvp-factory-deploy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: CloudFormationOwnStacks
+                Effect: Allow
+                Action: cloudformation:*
+                Resource:
+                  - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mvp-*/*
+              - Sid: CloudFormationRead
+                Effect: Allow
+                Action:
+                  - cloudformation:ValidateTemplate
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ListStacks
+                  - cloudformation:GetTemplateSummary
+                Resource: "*"
+              - Sid: DeploymentBuckets
+                Effect: Allow
+                Action: s3:*
+                Resource:
+                  - arn:aws:s3:::mvp-*
+                  - arn:aws:s3:::mvp-*/*
+              - Sid: Lambda
+                Effect: Allow
+                Action: lambda:*
+                Resource: !Sub arn:aws:lambda:*:${AWS::AccountId}:function:mvp-*
+              - Sid: LambdaRead
+                Effect: Allow
+                Action: [lambda:GetAccountSettings, lambda:ListFunctions]
+                Resource: "*"
+              - Sid: HttpApi
+                Effect: Allow
+                Action: apigateway:*
+                Resource:
+                  - arn:aws:apigateway:*::/apis
+                  - arn:aws:apigateway:*::/apis/*
+                  - arn:aws:apigateway:*::/tags/*
+              - Sid: Logs
+                Effect: Allow
+                Action: logs:*
+                Resource:
+                  - !Sub arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/mvp-*
+                  - !Sub arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/mvp-*:*
+              - Sid: LogsDescribe
+                Effect: Allow
+                Action: logs:DescribeLogGroups
+                Resource: "*"
+              - Sid: AppTables
+                Effect: Allow
+                Action: dynamodb:*
+                Resource: !Sub arn:aws:dynamodb:*:${AWS::AccountId}:table/mvp-*
+              - Sid: LambdaRoles
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:PassRole
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:TagRole
+                  - iam:UntagRole
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/mvp-*
+              - Sid: AppSecrets
+                Effect: Allow
+                Action: [ssm:GetParameter, ssm:PutParameter, ssm:GetParametersByPath, ssm:AddTagsToResource]
+                Resource: !Sub arn:aws:ssm:*:${AWS::AccountId}:parameter/mvp/*
+
+  CostBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: mvp-factory-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref MonthlyBudgetUsd
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref BudgetEmail
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref BudgetEmail
+
+Outputs:
+  RoleArn:
+    Description: Put this in the GitHub secret AWS_ROLE_ARN
+    Value: !GetAtt FactoryRole.Arn

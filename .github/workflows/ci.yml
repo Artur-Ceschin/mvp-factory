@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore: ["reports/**", "registry.json"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Validate every generated app
+        run: |
+          for d in apps/*/; do
+            [ -f "$d/package.json" ] || continue
+            slug=$(basename "$d")
+            echo "::group::validate $slug"
+            npx tsx orchestrator/src/cli.ts validate "$slug"
+            echo "::endgroup::"
+          done
+      - name: End-to-end dry run (mock builder, no AWS)
+        run: |
+          # Throwaway idea so the dry run never overwrites a real generated app.
+          sed 's/^slug: .*/slug: ci-dry-run/' "$(ls ideas/*.yaml | head -1)" > ideas/ci-dry-run.yaml
+          npx tsx orchestrator/src/cli.ts build ci-dry-run --dry-run --force

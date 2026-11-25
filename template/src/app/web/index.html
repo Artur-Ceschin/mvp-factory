@@ -1,0 +1,87 @@
+<!doctype html>
+<!-- APP FILE — the builder agent replaces this with the product's UI (pt-BR). -->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{APP_NAME}}</title>
+  <meta name="description" content="Suas notas, simples e rápidas." />
+  <link rel="stylesheet" href="/_base.css" />
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <strong>{{APP_NAME}}</strong>
+      <div class="row">
+        <span id="plan" class="badge hidden"></span>
+        <button id="logout" class="secondary hidden">Sair</button>
+      </div>
+    </nav>
+
+    <section id="landing">
+      <h1>Anote o que importa em segundos.</h1>
+      <p class="muted">Grátis até 5 notas. Pro ilimitado por {{PRICE}}/mês.</p>
+      <div class="card" style="max-width:420px">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" autocomplete="email" />
+        <label for="password">Senha</label>
+        <input id="password" type="password" autocomplete="current-password" />
+        <div class="row" style="margin-top:12px">
+          <button id="signup">Criar conta grátis</button>
+          <button id="login" class="secondary">Entrar</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="app" class="hidden">
+      <div class="card">
+        <div class="row">
+          <input id="text" placeholder="Nova nota" style="flex:1" />
+          <button id="add">Adicionar</button>
+        </div>
+      </div>
+      <div id="notes"></div>
+      <div id="upsell" class="card hidden">
+        <h2>Desbloqueie notas ilimitadas</h2>
+        <button id="upgrade">Assinar Pro — {{PRICE}}/mês</button>
+      </div>
+    </section>
+  </div>
+  <script src="/_sdk.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    async function render() {
+      const user = await App.auth.me();
+      $("landing").classList.toggle("hidden", !!user);
+      $("app").classList.toggle("hidden", !user);
+      $("logout").classList.toggle("hidden", !user);
+      $("plan").classList.toggle("hidden", !user);
+      if (!user) return;
+      $("plan").textContent = user.plan === "pro" ? "Pro" : "Grátis";
+      $("upsell").classList.toggle("hidden", user.plan === "pro");
+      const { notes } = await App.api("/api/notes");
+      $("notes").innerHTML = "";
+      for (const n of notes) {
+        const el = document.createElement("div");
+        el.className = "card";
+        el.textContent = n.text;
+        $("notes").appendChild(el);
+      }
+    }
+    async function doAuth(kind) {
+      try { await App.auth[kind]($("email").value, $("password").value); await render(); }
+      catch (e) { App.toast(e.message, "error"); }
+    }
+    $("signup").onclick = () => doAuth("signup");
+    $("login").onclick = () => doAuth("login");
+    $("logout").onclick = () => { App.auth.logout(); render(); };
+    $("add").onclick = async () => {
+      try { await App.api("/api/notes", { body: { text: $("text").value } }); $("text").value = ""; await render(); }
+      catch (e) { if (e.status === 402) $("upsell").classList.remove("hidden"); App.toast(e.message, "error"); }
+    };
+    $("upgrade").onclick = () => App.checkout().catch((e) => App.toast(e.message, "error"));
+    if (new URLSearchParams(location.search).get("checkout") === "success") App.toast("Assinatura ativada! 🎉");
+    render();
+  </script>
+</body>
+</html>

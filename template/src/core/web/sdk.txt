@@ -1,0 +1,83 @@
+// Browser SDK served at /_sdk.js. Exposes window.App.
+// CORE FILE — generated apps must not edit anything under src/core.
+(function () {
+  var TOKEN_KEY = "mvp_token";
+  function getToken() { try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return null; } }
+  function setToken(t) { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
+
+  async function api(path, opts) {
+    opts = opts || {};
+    var headers = { "content-type": "application/json" };
+    var t = getToken();
+    if (t) headers.authorization = "Bearer " + t;
+    var res = await fetch(path, {
+      method: opts.method || (opts.body ? "POST" : "GET"),
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    var data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) {
+      if (res.status === 401) setToken(null);
+      var err = new Error((data && data.message) || "Erro " + res.status);
+      err.status = res.status; err.code = data && data.error;
+      throw err;
+    }
+    return data;
+  }
+
+  var auth = {
+    isLoggedIn: function () { return Boolean(getToken()); },
+    signup: async function (email, password) { var r = await api("/api/auth/signup", { body: { email: email, password: password } }); setToken(r.token); return r.user; },
+    login: async function (email, password) { var r = await api("/api/auth/login", { body: { email: email, password: password } }); setToken(r.token); return r.user; },
+    logout: function () { setToken(null); },
+    me: async function () { if (!getToken()) return null; try { return (await api("/api/auth/me")).user; } catch (e) { return null; } },
+  };
+
+  function track(event) {
+    return api("/api/events", { body: { event: event } }).catch(function () {});
+  }
+
+  async function checkout() {
+    track("ui_checkout_click");
+    var r = await api("/api/billing/checkout", { method: "POST", body: {} });
+    location.href = r.url;
+  }
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  // Opens Pluggy Connect. tokenPath must be an app route that returns { accessToken }.
+  // Resolves with the connected itemId.
+  async function connectBank(tokenPath, opts) {
+    opts = opts || {};
+    var tok = await api(tokenPath, { method: "POST", body: {} });
+    if (!window.PluggyConnect) await loadScript("https://cdn.pluggy.ai/pluggy-connect/latest/pluggy-connect.js");
+    return new Promise(function (resolve, reject) {
+      var w = new window.PluggyConnect({
+        connectToken: tok.accessToken,
+        includeSandbox: Boolean(opts.sandbox),
+        onSuccess: function (data) { resolve(data && data.item && data.item.id); },
+        onError: function (e) { reject(e); },
+        onClose: function () { reject(new Error("closed")); },
+      });
+      w.init();
+    });
+  }
+
+  function toast(msg, kind) {
+    var el = document.createElement("div");
+    el.className = "toast " + (kind || "");
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(function () { el.remove(); }, 3500);
+  }
+
+  window.App = { api: api, auth: auth, track: track, checkout: checkout, connectBank: connectBank, toast: toast };
+  track("pageview");
+})();

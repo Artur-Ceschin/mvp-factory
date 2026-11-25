@@ -1,0 +1,36 @@
+/* Base styles served at /_base.css. Apps add their own styles inline. CORE FILE. */
+:root {
+  --bg: #0f1115; --surface: #171a21; --surface-2: #1f232c; --text: #e8eaf0; --muted: #9aa3b2;
+  --accent: #4ade80; --accent-ink: #052e16; --danger: #f87171; --radius: 12px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #f7f8fa; --surface: #fff; --surface-2: #f0f2f5; --text: #12151b; --muted: #5b6472; --accent: #16a34a; --accent-ink: #fff; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 var(--font); }
+a { color: var(--accent); }
+.container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+.card { background: var(--surface); border-radius: var(--radius); padding: 20px; margin: 12px 0; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.muted { color: var(--muted); }
+h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1.15; margin: 0.2em 0; }
+h2 { font-size: 1.3rem; margin: 0.4em 0; }
+button, .btn {
+  font: inherit; border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer;
+  background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none; display: inline-block;
+}
+button.secondary, .btn.secondary { background: var(--surface-2); color: var(--text); }
+button:disabled { opacity: 0.5; cursor: default; }
+input, select, textarea {
+  font: inherit; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--surface-2);
+  background: var(--surface-2); color: var(--text);
+}
+label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 0.9rem; }
+.hidden { display: none !important; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); font-size: 0.8rem; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--surface-2); color: var(--text);
+  padding: 10px 16px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 99; }
+.toast.error { background: var(--danger); color: #fff; }
+nav { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; }

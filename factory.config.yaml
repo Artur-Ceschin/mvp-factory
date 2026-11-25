@@ -1,0 +1,37 @@
+# MVP Factory configuration
+aws:
+  region: us-east-1
+  # Deployed in order; the last stage is production (the one that gets scored).
+  stages: [dev, prod]
+
+builder:
+  # Claude model used by the builder agent (Claude Agent SDK, needs ANTHROPIC_API_KEY).
+  model: claude-sonnet-5-5
+  maxTurns: 80
+  # Hard cap per agent session; a build can use up to (1 + maxRepairAttempts) sessions.
+  maxBudgetUsdPerBuild: 8
+  maxRepairAttempts: 3
+
+runtime:
+  # Model the deployed apps call through Amazon Bedrock (enable access in the Bedrock console).
+  bedrockModelId: us.anthropic.claude-haiku-4-5-20251001-v1:0
+  bedrockRegion: us-east-1
+
+run:
+  # Per scheduled run. Raise these to deploy more ideas faster (and spend more).
+  maxNewIdeasPerRun: 1
+  maxIterationsPerRun: 1
+
+score:
+  windowDays: 14
+  # Don't judge an app before this many days live or before it has this many visitors.
+  minDaysLive: 14
+  minVisitors: 200
+  # Below this visit→signup rate (after enough traffic) the app becomes a kill candidate.
+  minSignupRate: 0.03
+  # This many paid conversions in the window => "scale".
+  scaleIfPaidAtLeast: 3
+
+# When true, kill candidates are removed from AWS automatically (tables are retained).
+# When false they are only flagged in the report and you run `factory kill <slug> --confirm`.
+autoKill: false
