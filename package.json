@@ -8,8 +8,8 @@
   ],
   "scripts": {
     "factory": "tsx orchestrator/src/cli.ts",
-    "test": "npm test -w orchestrator && npm test -w template",
-    "typecheck": "npm run typecheck -w orchestrator && npm run typecheck -w template"
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
     "osls": "^4.9.0",
@@ -18,5 +18,6 @@
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "packageManager": "pnpm@12.23.0+sha512.02da94ffaf133f46074322afe552f90d40b5f71ae259aefbccdacc5085b1d617e98d65e0131f5748b9b67445978ee5055d7d59a473f1eef0d504854fefcd5975"
 }

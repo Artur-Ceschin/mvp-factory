@@ -1,0 +1,6 @@
+packages:
+  - orchestrator
+  - template
+allowBuilds:
+  es5-ext: false
+  esbuild: false
