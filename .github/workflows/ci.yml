@@ -24,11 +24,11 @@ jobs:
             [ -f "$d/package.json" ] || continue
             slug=$(basename "$d")
             echo "::group::validate $slug"
-            npx tsx orchestrator/src/cli.ts validate "$slug"
+            pnpm exec tsx orchestrator/src/cli.ts validate "$slug"
             echo "::endgroup::"
           done
       - name: End-to-end dry run (mock builder, no AWS)
         run: |
           # Throwaway idea so the dry run never overwrites a real generated app.
           sed 's/^slug: .*/slug: ci-dry-run/' "$(ls ideas/*.yaml | head -1)" > ideas/ci-dry-run.yaml
-          npx tsx orchestrator/src/cli.ts build ci-dry-run --dry-run --force
+          pnpm exec tsx orchestrator/src/cli.ts build ci-dry-run --dry-run --force

@@ -24,12 +24,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
@@ -47,7 +47,7 @@ jobs:
           COMMAND: ${{ github.event.inputs.command || 'run' }}
         run: |
           # word-split COMMAND into args on purpose (e.g. "build calistenia-coach")
-          npx tsx orchestrator/src/cli.ts $COMMAND
+          pnpm exec tsx orchestrator/src/cli.ts $COMMAND
 
       - name: Commit generated apps, registry and report
         if: always()
