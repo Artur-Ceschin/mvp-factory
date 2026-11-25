@@ -1,104 +1,111 @@
 # MVP Factory
 
-Fábrica autônoma de MVPs pagos. Ela pega ideias de `ideas/*.yaml` e, com um agente Claude,
-gera cada app funcional, valida, publica na AWS (Lambda + DynamoDB via Serverless Framework),
-mede o uso real em produção e decide o que fazer com cada app: **iterar**, **escalar** ou **matar**.
+An autonomous factory for paid MVPs. It takes ideas from `ideas/*.yaml`, has a Claude agent build
+each one as a working app, validates it, deploys it to AWS (Lambda + DynamoDB via the Serverless
+Framework), measures real usage in production and decides what to do next: **iterate**, **scale**
+or **kill**.
 
 ```
-ideas/*.yaml ──► build (agente Claude) ──► gates ──✗──► repair (agente) ─┐
-                                             │ ✓                        │ até N vezes
-                                             ▼                          │
-                       deploy dev ──► smoke ──► deploy prod ──► smoke ◄─┘
-                                                                  │
-                     score diário (/api/_metrics) ◄───────────────┘
-                       │
-       scale / iterate ──► agente melhora o funil ──► gates ──► deploy
-       needs-traffic   ──► só reporta (sem tráfego não há validação)
-       kill-candidate  ──► abre issue (ou remove, se autoKill: true)
+ideas/*.yaml ──► build (Claude agent) ──► gates ──✗──► repair (agent) ─┐
+                                            │ ✓                        │ up to N times
+                                            ▼                          │
+                      deploy dev ──► smoke ──► deploy prod ──► smoke ◄─┘
+                                                                 │
+                    daily score (/api/_metrics) ◄────────────────┘
+                      │
+      scale / iterate ──► agent improves the funnel ──► gates ──► deploy
+      needs-traffic   ──► report only (no traffic, no validation)
+      kill-candidate  ──► opens an issue (or removes it if autoKill: true)
 ```
 
-## Como funciona
+## How it works
 
-| Peça | O que faz |
+| Part | What it does |
 |---|---|
-| `template/` | App base que todo MVP herda: auth (e-mail/senha, JWT), Stripe Checkout + webhooks, analytics, IA via Bedrock, Open Finance via Pluggy, exclusão de conta (LGPD), SPA servida pela própria Lambda. |
-| `template/src/core` | **Protegido.** O agente não pode alterar (checado byte a byte). Melhorias no core chegam a todos os apps com `factory sync-core`. |
-| `template/src/app` | Única área que o agente escreve: `routes.ts`, `manifest.ts` (evento de ativação + smoke tests), `web/index.html`, `tests/app*.test.ts`. |
-| `orchestrator/` | CLI `factory`: build, validate, ship, score, iterate, kill. |
-| `orchestrator/prompts` | Regras e prompts do agente (build, repair, iterate). |
-| `registry.json` | Estado do portfólio (status, URLs, gasto com agente, scorecards). Commitado pelo workflow. |
-| `reports/latest.md` | Relatório da última execução (também vai para o summary do GitHub Actions). |
+| `template/` | Base app every MVP inherits: email/password auth (JWT), Stripe Checkout + webhooks, analytics, AI via Bedrock, Brazilian Open Finance via Pluggy, account deletion (GDPR/LGPD), and a single-page app served by the Lambda itself. |
+| `template/src/core` | **Protected.** The agent cannot change it (checked byte for byte). Core improvements reach every app with `factory sync-core`. |
+| `template/src/app` | The only area the agent writes: `routes.ts`, `manifest.ts` (activation event + smoke tests), `web/index.html`, `tests/app*.test.ts`. |
+| `orchestrator/` | The `factory` CLI: build, validate, ship, score, iterate, kill. |
+| `orchestrator/prompts` | Agent rules and prompts (build, repair, iterate). |
+| `registry.json` | Portfolio state (status, URLs, agent spend, scorecards). Committed by the workflow. |
+| `reports/latest.md` | Report of the last run (also written to the GitHub Actions summary). |
 
-### Gates de validação (`factory validate <slug>`)
-1. **core-integrity**: core, `serverless.yml`, configs e dependências idênticos ao template.
-2. **secret-scan**: nenhuma chave Stripe/AWS/Anthropic no código.
-3. **code-policy**: sem `eval`, `child_process`, `innerHTML` com interpolação, dependências novas ou segredos lidos de `process.env`.
-4. **typecheck**, **tests** (testes do core + do app + smoke tests do manifest em memória), **bundle** (< 2 MB), **package** (`osls package`).
+### Language
+Code, comments, commits, folder names and docs are always **English**. Each idea has a `locale`
+(`en-US` by default, or `pt-BR`) that controls only what its end users see: UI copy, error
+messages, AI output and price formatting.
 
-Se um gate falha, o agente recebe a saída e tenta corrigir (`maxRepairAttempts`). Numa iteração de
-app em produção que não passa nos gates, o código anterior é restaurado e nada é publicado.
+### Validation gates (`factory validate <slug>`)
+1. **core-integrity**: core, `serverless.yml`, configs and dependencies are identical to the template.
+2. **secret-scan**: no Stripe/AWS/Anthropic keys in the code.
+3. **code-policy**: no `eval`, `child_process`, `innerHTML` with interpolation, new dependencies, or secrets read from `process.env`.
+4. **typecheck**, **tests** (core tests, app tests, and the manifest's smoke checks in memory), **bundle** (< 2 MB), **package** (`osls package`).
 
-### Sandbox do agente
-O agente (Claude Agent SDK) só escreve em `src/app/**` e `tests/app*.test.ts`, só roda
-`npm test` / `npm run typecheck` / comandos de leitura, não tem acesso à web e tem teto de gasto
-por sessão (`maxBudgetUsdPerBuild`).
+When a gate fails, the agent gets the output and tries to fix it (`maxRepairAttempts`). When an
+iteration on a live app fails the gates, the previous code is restored and nothing is deployed.
 
-### Métricas e decisão
-Cada app grava contadores diários no próprio DynamoDB: `pageview`, `signup`, `<activationEvent>`,
-`checkout_started`, `subscription_activated` e `subscription_canceled`, com contagem única por
-usuário. Usuários de smoke test (`@smoke.invalid`) ficam fora das métricas e são apagados ao final.
-As regras de decisão ficam em `factory.config.yaml` → `score`.
+### Agent sandbox
+The agent (Claude Agent SDK) can only write to `src/app/**` and `tests/app*.test.ts`, can only run
+`npm test` / `npm run typecheck` / read-only commands, has no web access, and has a spend cap per
+session (`maxBudgetUsdPerBuild`).
 
-## Setup (uma vez)
+### Metrics and decisions
+Each app writes daily counters to its own DynamoDB table: `pageview`, `signup`,
+`<activationEvent>`, `checkout_started`, `subscription_activated` and `subscription_canceled`,
+with per-user unique counts. Smoke-test users (`@smoke.invalid`) are excluded from metrics and
+deleted at the end. Decision rules live in `factory.config.yaml` → `score`.
 
-1. **Repositório**: suba esta pasta para um repo GitHub privado (branch `main`).
-2. **AWS** (cria a role OIDC do GitHub, sem chaves de longa duração, e um alerta de orçamento):
+## Setup (once)
+
+1. **Repository**: push this folder to a private GitHub repo (branch `main`).
+2. **AWS** (creates the GitHub OIDC role, with no long-lived keys, and a budget alert):
    ```bash
    aws cloudformation deploy --stack-name mvp-factory-bootstrap \
      --template-file infra/bootstrap.yml --capabilities CAPABILITY_NAMED_IAM \
-     --parameter-overrides GitHubRepo=SEU_USUARIO/mvp-factory BudgetEmail=voce@email.com MonthlyBudgetUsd=50
+     --parameter-overrides GitHubRepo=YOUR_USER/mvp-factory BudgetEmail=you@example.com MonthlyBudgetUsd=50
    aws cloudformation describe-stacks --stack-name mvp-factory-bootstrap --query "Stacks[0].Outputs"
    ```
-   Se a conta já tem o provider OIDC do GitHub, use `CreateOidcProvider=false`.
-3. **Bedrock**: habilite o modelo de `runtime.bedrockModelId` no console do Bedrock (us-east-1).
-4. **Secrets do GitHub** (Settings → Secrets and variables → Actions):
+   If the account already has the GitHub OIDC provider, add `CreateOidcProvider=false`.
+3. **Bedrock**: enable the model in `runtime.bedrockModelId` in the Bedrock console (us-east-1).
+4. **GitHub secrets** (Settings → Secrets and variables → Actions):
 
-   | Secret | Obrigatório | Uso |
+   | Secret | Required | Used for |
    |---|---|---|
-   | `AWS_ROLE_ARN` | sim | output `RoleArn` do passo 2 |
-   | `ANTHROPIC_API_KEY` | sim | agente construtor |
-   | `STRIPE_SECRET_KEY_DEV` | recomendado | `sk_test_…` (dev) |
-   | `STRIPE_SECRET_KEY_PROD` | para cobrar | `sk_live_…` (prod) |
-   | `PLUGGY_CLIENT_ID_DEV` / `PLUGGY_CLIENT_SECRET_DEV` | para o Grana Clara | credenciais sandbox |
-   | `PLUGGY_CLIENT_ID_PROD` / `PLUGGY_CLIENT_SECRET_PROD` | para o Grana Clara | credenciais de produção |
+   | `AWS_ROLE_ARN` | yes | `RoleArn` output from step 2 |
+   | `ANTHROPIC_API_KEY` | yes | the builder agent |
+   | `STRIPE_SECRET_KEY_DEV` | recommended | `sk_test_…` (dev) |
+   | `STRIPE_SECRET_KEY_PROD` | to charge | `sk_live_…` (prod) |
+   | `PLUGGY_CLIENT_ID_DEV` / `PLUGGY_CLIENT_SECRET_DEV` | for br-expense-tracker | sandbox credentials |
+   | `PLUGGY_CLIENT_ID_PROD` / `PLUGGY_CLIENT_SECRET_PROD` | for br-expense-tracker | production credentials |
 
-   Os segredos vão para o SSM (`/mvp/<slug>/<stage>/*`, SecureString). A Lambda lê de lá em runtime.
-   `JWT_SECRET` e `ADMIN_TOKEN` são gerados automaticamente e o webhook do Stripe é criado sozinho
-   no primeiro deploy de cada stage.
-5. Pronto. O workflow `factory` roda todo dia às 06:17 (horário de Brasília). Para rodar na hora:
-   Actions → factory → Run workflow (`run`, `build calistenia-coach`, `ship estudo-ativo`, `score`…).
+   Secrets are stored in SSM (`/mvp/<slug>/<stage>/*`, SecureString) and read by the Lambda at
+   runtime. `JWT_SECRET` and `ADMIN_TOKEN` are generated automatically, and the Stripe webhook is
+   created on each stage's first deploy.
+5. Done. The `factory` workflow runs daily at 06:17 (São Paulo time). To run it now:
+   Actions → factory → Run workflow (`run`, `build calisthenics-coach`, `ship study-cards`, `score`…),
+   or `gh workflow run factory -f command="build calisthenics-coach"`.
 
-## Uso local
+## Local usage
 
 ```bash
-npm install
-npm test                                      # testes do orquestrador + template
-npx tsx orchestrator/src/cli.ts list
-npx tsx orchestrator/src/cli.ts run --dry-run   # ciclo completo com builder simulado, sem AWS
-npx tsx orchestrator/src/cli.ts build calistenia-coach          # agente real (ANTHROPIC_API_KEY)
-cd apps/calistenia-coach && npm run dev        # http://localhost:3000 com DB em memória
-npx tsx orchestrator/src/cli.ts ship calistenia-coach            # precisa de credenciais AWS
+pnpm install
+pnpm test                                    # orchestrator + template tests
+pnpm factory list
+pnpm factory run --dry-run                   # full cycle with a mock builder, no AWS
+pnpm factory build calisthenics-coach        # real agent (needs ANTHROPIC_API_KEY)
+cd apps/calisthenics-coach && pnpm dev       # http://localhost:3000 with an in-memory DB
+pnpm factory ship calisthenics-coach         # needs AWS credentials
 ```
 
-## Adicionar uma ideia
-Crie `ideas/<slug>.yaml` seguindo os existentes (schema em `orchestrator/src/ideas.ts`). Campos que
-mais influenciam o resultado são `features` (escopo concreto), `pricing.freeTier/proTier` (limites
-aplicados no servidor), `activationEvent` (o momento de valor real) e `constraints`.
-`priority` menor é construído primeiro; `status: paused` pula a ideia.
+## Adding an idea
+Create `ideas/<slug>.yaml` following the existing ones (schema in `orchestrator/src/ideas.ts`).
+The fields with the most influence on the result are `features` (concrete scope),
+`pricing.freeTier/proTier` (limits enforced server-side), `activationEvent` (the moment of real
+value), `constraints` and `locale`. Lower `priority` is built first; `status: paused` skips it.
 
-## Custos e limites
-- AWS: tudo on-demand (Lambda, HTTP API, DynamoDB on-demand); sem tráfego fica perto de zero. Há o alerta de orçamento do bootstrap.
-- Agente: até `maxBudgetUsdPerBuild × (1 + maxRepairAttempts)` por build. O gasto real fica em `registry.json`.
-- Ritmo: `run.maxNewIdeasPerRun` e `run.maxIterationsPerRun` controlam quanto sai por dia.
-- A fábrica **não gera tráfego**. Sem visitantes, os apps ficam em `needs-traffic`. Divulgação (anúncios, comunidades, SEO) é o que transforma deploy em validação.
-- Apps de saúde e finanças: os prompts exigem aviso de saúde, consentimento LGPD e exclusão de conta. Revise textos legais (termos e privacidade) antes de cobrar de verdade.
+## Costs and limits
+- AWS: everything is on-demand (Lambda, HTTP API, on-demand DynamoDB); close to zero without traffic. The bootstrap adds a budget alert.
+- Agent: up to `maxBudgetUsdPerBuild × (1 + maxRepairAttempts)` per build. Actual spend is tracked in `registry.json`.
+- Pace: `run.maxNewIdeasPerRun` and `run.maxIterationsPerRun` control how much ships per day.
+- The factory **does not generate traffic**. Without visitors, apps stay in `needs-traffic`. Distribution (ads, communities, SEO) is what turns a deploy into validation.
+- Health and finance apps: the prompts require a health disclaimer, privacy consent and account deletion. Have the terms of service and privacy policy reviewed before charging real money.

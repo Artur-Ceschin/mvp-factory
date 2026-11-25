@@ -19,7 +19,7 @@
     try { data = await res.json(); } catch (e) {}
     if (!res.ok) {
       if (res.status === 401) setToken(null);
-      var err = new Error((data && data.message) || "Erro " + res.status);
+      var err = new Error((data && data.message) || "Error " + res.status);
       err.status = res.status; err.code = data && data.error;
       throw err;
     }

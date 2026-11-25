@@ -20,7 +20,7 @@ describe("core", () => {
     const home = await call("GET", "/");
     expect(home.status).toBe(200);
     expect(home.raw).toContain("/_sdk.js");
-    expect(home.raw).not.toContain("{{APP_NAME}}");
+    expect(home.raw).not.toMatch(/\{\{(APP_NAME|LANG|PRICE)\}\}/);
     expect((await call("GET", "/_sdk.js")).raw).toContain("window.App");
     expect((await call("GET", "/_base.css")).status).toBe(200);
     expect((await call("GET", "/some/deep/link")).status).toBe(200);

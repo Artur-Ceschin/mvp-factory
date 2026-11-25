@@ -48,6 +48,7 @@ export function writeAppMeta(idea: Idea, cfg: Config) {
         name: idea.name,
         priceCents: idea.pricing.monthlyCents,
         currency: idea.pricing.currency.toLowerCase(),
+        locale: idea.locale,
         bedrockModelId: cfg.runtime.bedrockModelId,
         bedrockRegion: cfg.runtime.bedrockRegion,
       },

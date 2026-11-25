@@ -17,12 +17,12 @@ export function registerAppRoutes(r: Router) {
     "/api/notes",
     async (req) => {
       const { text } = requireFields(req.body, { text: "string" });
-      if (!text.trim() || text.length > 2000) throw new HttpError(400, "Texto inválido", "bad_request");
+      if (!text.trim() || text.length > 2000) throw new HttpError(400, "Invalid note text", "bad_request");
       const user = req.user!;
       if (user.plan !== "pro") {
         const existing = await db().query(`USER#${user.id}`, { prefix: "NOTE#" });
         if (existing.length >= FREE_LIMIT)
-          throw new HttpError(402, `O plano grátis permite ${FREE_LIMIT} notas`, "payment_required");
+          throw new HttpError(402, `The free plan allows ${FREE_LIMIT} notes`, "payment_required");
       }
       const note = { pk: `USER#${user.id}`, sk: `NOTE#${now()}#${id()}`, text: text.trim(), createdAt: now() };
       await db().put(note);

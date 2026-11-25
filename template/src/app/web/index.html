@@ -1,11 +1,11 @@
 <!doctype html>
-<!-- APP FILE — the builder agent replaces this with the product's UI (pt-BR). -->
-<html lang="pt-BR">
+<!-- APP FILE — the builder agent replaces this with the product's UI, in the app's locale. -->
+<html lang="{{LANG}}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{APP_NAME}}</title>
-  <meta name="description" content="Suas notas, simples e rápidas." />
+  <meta name="description" content="Your notes, simple and fast." />
   <link rel="stylesheet" href="/_base.css" />
 </head>
 <body>
@@ -14,21 +14,21 @@
       <strong>{{APP_NAME}}</strong>
       <div class="row">
         <span id="plan" class="badge hidden"></span>
-        <button id="logout" class="secondary hidden">Sair</button>
+        <button id="logout" class="secondary hidden">Log out</button>
       </div>
     </nav>
 
     <section id="landing">
-      <h1>Anote o que importa em segundos.</h1>
-      <p class="muted">Grátis até 5 notas. Pro ilimitado por {{PRICE}}/mês.</p>
+      <h1>Capture what matters in seconds.</h1>
+      <p class="muted">Free for up to 5 notes. Unlimited with Pro for {{PRICE}}/month.</p>
       <div class="card" style="max-width:420px">
-        <label for="email">E-mail</label>
+        <label for="email">Email</label>
         <input id="email" type="email" autocomplete="email" />
-        <label for="password">Senha</label>
+        <label for="password">Password</label>
         <input id="password" type="password" autocomplete="current-password" />
         <div class="row" style="margin-top:12px">
-          <button id="signup">Criar conta grátis</button>
-          <button id="login" class="secondary">Entrar</button>
+          <button id="signup">Create free account</button>
+          <button id="login" class="secondary">Log in</button>
         </div>
       </div>
     </section>
@@ -36,15 +36,16 @@
     <section id="app" class="hidden">
       <div class="card">
         <div class="row">
-          <input id="text" placeholder="Nova nota" style="flex:1" />
-          <button id="add">Adicionar</button>
+          <input id="text" placeholder="New note" style="flex:1" />
+          <button id="add">Add</button>
         </div>
       </div>
       <div id="notes"></div>
       <div id="upsell" class="card hidden">
-        <h2>Desbloqueie notas ilimitadas</h2>
-        <button id="upgrade">Assinar Pro — {{PRICE}}/mês</button>
+        <h2>Unlock unlimited notes</h2>
+        <button id="upgrade">Go Pro — {{PRICE}}/month</button>
       </div>
+      <p class="muted"><a href="#" id="delete">Delete my account</a></p>
     </section>
   </div>
   <script src="/_sdk.js"></script>
@@ -57,7 +58,7 @@
       $("logout").classList.toggle("hidden", !user);
       $("plan").classList.toggle("hidden", !user);
       if (!user) return;
-      $("plan").textContent = user.plan === "pro" ? "Pro" : "Grátis";
+      $("plan").textContent = user.plan === "pro" ? "Pro" : "Free";
       $("upsell").classList.toggle("hidden", user.plan === "pro");
       const { notes } = await App.api("/api/notes");
       $("notes").innerHTML = "";
@@ -80,7 +81,14 @@
       catch (e) { if (e.status === 402) $("upsell").classList.remove("hidden"); App.toast(e.message, "error"); }
     };
     $("upgrade").onclick = () => App.checkout().catch((e) => App.toast(e.message, "error"));
-    if (new URLSearchParams(location.search).get("checkout") === "success") App.toast("Assinatura ativada! 🎉");
+    $("delete").onclick = async (ev) => {
+      ev.preventDefault();
+      if (!confirm("Delete your account and all your data? This cannot be undone.")) return;
+      await App.api("/api/auth/me", { method: "DELETE" });
+      App.auth.logout();
+      render();
+    };
+    if (new URLSearchParams(location.search).get("checkout") === "success") App.toast("Subscription active! 🎉");
     render();
   </script>
 </body>

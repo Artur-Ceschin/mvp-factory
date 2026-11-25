@@ -25,6 +25,7 @@ provider:
     SECRETS_PATH: /mvp/${file(./factory.app.json):slug}/${sls:stage}
     PRICE_CENTS: ${file(./factory.app.json):priceCents}
     PRICE_CURRENCY: ${file(./factory.app.json):currency}
+    APP_LOCALE: ${file(./factory.app.json):locale}
     BEDROCK_MODEL_ID: ${file(./factory.app.json):bedrockModelId}
     BEDROCK_REGION: ${file(./factory.app.json):bedrockRegion}
     NODE_OPTIONS: --enable-source-maps

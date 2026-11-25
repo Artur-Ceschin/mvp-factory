@@ -1,0 +1,28 @@
+slug: calisthenics-coach
+name: BarPath
+priority: 10
+status: queued
+locale: en-US
+pitch: Your calisthenics coach in your pocket — a weekly plan that adapts to your level, your equipment and your goal.
+audience: Adults aged 18–40 who train at home, in parks or at outdoor bar spots, want to progress in calisthenics (first pull-up, muscle-up, handstand) and find personal trainers too expensive.
+problem: Generic online workouts ignore the person's level, have no progression and never tell them when to move on. A personal trainer costs $200+ per month.
+pricing:
+  currency: usd
+  monthlyCents: 1299
+  freeTier: Initial assessment and 1 generated workout per week with basic progressions.
+  proTier: Full adaptive weekly plan, progressions up to skills (muscle-up, front lever, handstand), automatic adjustment from each workout's feedback, and progress history.
+activationEvent: workout_completed
+features:
+  - Assessment onboarding — current level (max pull-ups, push-ups, dips, plank hold), available equipment (pull-up bar, parallel bars, rings, floor only), days per week, minutes per session and goal (strength, muscle, a specific skill).
+  - Fixed exercise library in code with progression chains (e.g. australian row → negative pull-up → full pull-up → weighted pull-up), each with a short description and form cues.
+  - Weekly plan generation with AI (completeJson) restricted to library IDs; the server validates the JSON and drops unknown exercises. Without AI, a rule-based plan is generated.
+  - '"Today''s workout" screen with sets, reps or hold time, rest and a checkbox per set; on finish the user rates effort (easy / ok / hard) and workout_completed is tracked.'
+  - Automatic progression — after 2 "easy" sessions on an exercise, move up the chain; after "hard", hold or step back.
+  - Progress screen with weekly streak, total workouts and current level in each chain.
+integrations: [bedrock, stripe]
+constraints:
+  - Health disclaimer visible during onboarding — the app does not replace medical or professional advice; stop if you feel pain.
+  - The plan may only contain library exercises; never free-form AI text as exercise instructions.
+  - Free tier enforced server-side (1 workout generation per week).
+outOfScope:
+  - Own videos, nutrition, community, native app, wearable integrations.

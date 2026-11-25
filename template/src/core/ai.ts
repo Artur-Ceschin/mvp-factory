@@ -32,7 +32,7 @@ export async function complete(opts: CompleteOpts): Promise<string> {
 export async function completeJson<T = unknown>(opts: CompleteOpts): Promise<T> {
   const text = await complete({
     ...opts,
-    system: `${opts.system ?? ""}\nResponda apenas com JSON válido, sem texto extra.`.trim(),
+    system: `${opts.system ?? ""}\nReply with valid JSON only, no extra text.`.trim(),
   });
   const match = text.match(/[\[{][\s\S]*[\]}]/);
   if (!match) throw new Error("Model did not return JSON");

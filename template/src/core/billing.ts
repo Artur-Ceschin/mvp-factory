@@ -7,6 +7,7 @@ import { getUser, setPlan } from "./auth.js";
 import { db } from "./db.js";
 import { track } from "./events.js";
 import { HttpError, json, type Router } from "./http.js";
+import { t } from "./i18n.js";
 import { secret } from "./secrets.js";
 
 const STRIPE = "https://api.stripe.com/v1";
@@ -17,7 +18,7 @@ function form(obj: Record<string, string | number>) {
 
 async function stripe(path: string, body: Record<string, string | number>) {
   const key = await secret("STRIPE_SECRET_KEY");
-  if (!key) throw new HttpError(503, "Pagamentos ainda não configurados", "billing_disabled");
+  if (!key) throw new HttpError(503, t("billing_disabled"), "billing_disabled");
   const r = await fetch(`${STRIPE}${path}`, {
     method: "POST",
     headers: { authorization: `Bearer ${key}`, "content-type": "application/x-www-form-urlencoded" },
@@ -44,7 +45,7 @@ export function registerBillingRoutes(r: Router) {
   r.get("/api/billing/plan", async () =>
     json({
       priceCents: Number(process.env.PRICE_CENTS ?? 0),
-      currency: process.env.PRICE_CURRENCY ?? "brl",
+      currency: process.env.PRICE_CURRENCY ?? "usd",
       interval: "month",
       enabled: Boolean(await secret("STRIPE_SECRET_KEY")),
     }),
@@ -54,7 +55,7 @@ export function registerBillingRoutes(r: Router) {
     "/api/billing/checkout",
     async (req) => {
       const user = req.user!;
-      if (user.plan === "pro") throw new HttpError(400, "Você já é assinante", "already_pro");
+      if (user.plan === "pro") throw new HttpError(400, t("already_pro"), "already_pro");
       const origin = process.env.PUBLIC_URL ?? `https://${req.headers["host"]}`;
       const session = await stripe("/checkout/sessions", {
         mode: "subscription",
@@ -65,7 +66,7 @@ export function registerBillingRoutes(r: Router) {
         "metadata[userId]": user.id,
         "subscription_data[metadata][userId]": user.id,
         "line_items[0][quantity]": 1,
-        "line_items[0][price_data][currency]": process.env.PRICE_CURRENCY ?? "brl",
+        "line_items[0][price_data][currency]": process.env.PRICE_CURRENCY ?? "usd",
         "line_items[0][price_data][unit_amount]": Number(process.env.PRICE_CENTS ?? 1990),
         "line_items[0][price_data][recurring][interval]": "month",
         "line_items[0][price_data][product_data][name]": `${process.env.APP_NAME ?? "App"} Pro`,

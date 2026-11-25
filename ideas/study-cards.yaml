@@ -1,0 +1,27 @@
+slug: study-cards
+name: StudyLoop
+priority: 20
+status: queued
+locale: en-US
+pitch: Paste your study material and get ready-made flashcards and quizzes, with spaced repetition that tells you exactly what to review today.
+audience: University students and professionals preparing for certification and licensing exams (AWS, CompTIA, CPA, NCLEX, bar exam) who study from notes and PDFs and forget what they read.
+problem: Making flashcards by hand takes hours, and learners don't know what to review each day, so they forget most of what they read.
+pricing:
+  currency: usd
+  monthlyCents: 999
+  freeTier: 1 deck and up to 30 AI-generated cards per month, with full spaced repetition.
+  proTier: Unlimited decks and generation, multiple-choice quizzes, per-deck retention stats and CSV export.
+activationEvent: review_session_completed
+features:
+  - Create a deck by pasting text (up to 8,000 characters) or a topic; AI generates 10–30 question/answer cards as validated JSON; the user reviews and edits the cards before saving.
+  - Manual card creation and editing.
+  - SM-2 spaced repetition — a "Review today" queue with Again, Hard, Good and Easy buttons; finishing a session tracks review_session_completed.
+  - Multiple-choice quiz generated from a deck's cards (Pro).
+  - Dashboard with cards due today, study streak and accuracy per deck (detailed stats in Pro).
+integrations: [bedrock, stripe]
+constraints:
+  - Free-plan limits are counted server-side per calendar month.
+  - Generated cards are stored; the AI is never called twice for the same text.
+  - No PDF upload; pasted text only.
+outOfScope:
+  - PDF or image upload, deck sharing, mobile app, audio.

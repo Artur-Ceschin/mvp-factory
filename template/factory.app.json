@@ -1,8 +1,9 @@
 {
   "slug": "template",
-  "name": "Notas",
-  "priceCents": 990,
-  "currency": "brl",
+  "name": "Notes",
+  "priceCents": 499,
+  "currency": "usd",
+  "locale": "en-US",
   "bedrockModelId": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
   "bedrockRegion": "us-east-1"
 }

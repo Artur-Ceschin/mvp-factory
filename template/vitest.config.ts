@@ -21,7 +21,8 @@ export default defineConfig({
       ADMIN_TOKEN: "test-admin",
       APP_NAME: "Test App",
       PRICE_CENTS: "1990",
-      PRICE_CURRENCY: "brl",
+      PRICE_CURRENCY: "usd",
+      APP_LOCALE: "en-US",
     },
   },
 });

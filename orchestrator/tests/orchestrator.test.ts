@@ -14,6 +14,16 @@ describe("ideas", () => {
     expect(ideas.length).toBeGreaterThanOrEqual(3);
     for (const i of ideas) expect(ideaToSpec(i)).toContain(i.activationEvent);
   });
+
+  it("locale drives the spec and price format", () => {
+    const ideas = loadIdeas();
+    const en = ideas.find((i) => i.locale === "en-US")!;
+    const br = ideas.find((i) => i.locale === "pt-BR")!;
+    expect(ideaToSpec(en)).toMatch(/Locale:.*en-US.*US English/);
+    expect(ideaToSpec(en)).toContain("$");
+    expect(ideaToSpec(br)).toMatch(/Brazilian Portuguese/);
+    expect(ideaToSpec(br)).toContain("R$");
+  });
 });
 
 describe("scorecard decisions", () => {

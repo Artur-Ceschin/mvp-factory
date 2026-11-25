@@ -9,11 +9,13 @@ export const IdeaSchema = z.object({
   name: z.string().min(2),
   priority: z.number().int().default(100),
   status: z.enum(["queued", "paused"]).default("queued"),
+  /** Language/market of everything the end user sees. Code and docs are always English. */
+  locale: z.enum(["en-US", "pt-BR"]).default("en-US"),
   pitch: z.string().min(10),
   audience: z.string().min(5),
   problem: z.string().min(10),
   pricing: z.object({
-    currency: z.string().length(3).default("brl"),
+    currency: z.string().length(3).default("usd"),
     monthlyCents: z.number().int().positive(),
     freeTier: z.string().min(5),
     proTier: z.string().min(5),
@@ -51,11 +53,20 @@ export function loadIdea(slug: string): Idea {
   return idea;
 }
 
-/** Markdown spec handed to the builder agent. */
-export function ideaToSpec(idea: Idea): string {
-  const price = new Intl.NumberFormat("pt-BR", { style: "currency", currency: idea.pricing.currency.toUpperCase() }).format(
+const LOCALE_NOTE: Record<Idea["locale"], string> = {
+  "en-US": "all user-facing text (UI, emails, error messages, AI output) in US English.",
+  "pt-BR": "all user-facing text (UI, error messages, AI output) in Brazilian Portuguese. Code, comments and tests stay in English.",
+};
+
+export function formatPrice(idea: Idea) {
+  return new Intl.NumberFormat(idea.locale, { style: "currency", currency: idea.pricing.currency.toUpperCase() }).format(
     idea.pricing.monthlyCents / 100,
   );
+}
+
+/** Markdown spec handed to the builder agent. */
+export function ideaToSpec(idea: Idea): string {
+  const price = formatPrice(idea);
   const list = (xs: string[]) => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : "- (none)");
   return `# ${idea.name}
 
@@ -64,6 +75,8 @@ export function ideaToSpec(idea: Idea): string {
 **Audience:** ${idea.audience}
 
 **Problem:** ${idea.problem}
+
+**Locale:** \`${idea.locale}\` — ${LOCALE_NOTE[idea.locale]}
 
 ## Pricing
 - Pro: ${price}/month (Stripe Checkout is already implemented by the core)

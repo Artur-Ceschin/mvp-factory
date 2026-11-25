@@ -1,9 +1,10 @@
-// Pluggy (Open Finance aggregator) client. Server-side only: the client secret never reaches the browser.
+// Pluggy (Brazilian Open Finance aggregator) client. Server-side only: the client secret never reaches the browser.
 // Flow: POST /api/pluggy/connect-token -> browser opens Pluggy Connect widget -> widget returns itemId
 // -> app stores itemId for the user -> server lists accounts/transactions with listAccounts/listTransactions.
 // Docs: https://docs.pluggy.ai (API key valid 2h, connect token 30min, transactions via cursor on /v2).
 // CORE FILE — generated apps must not edit anything under src/core.
 import { HttpError } from "./http.js";
+import { t } from "./i18n.js";
 import { secret } from "./secrets.js";
 
 const BASE = "https://api.pluggy.ai";
@@ -38,13 +39,13 @@ async function key(): Promise<string> {
   if (apiKey && apiKey.exp > Date.now()) return apiKey.value;
   const clientId = await secret("PLUGGY_CLIENT_ID");
   const clientSecret = await secret("PLUGGY_CLIENT_SECRET");
-  if (!clientId || !clientSecret) throw new HttpError(503, "Open Finance ainda não configurado", "pluggy_disabled");
+  if (!clientId || !clientSecret) throw new HttpError(503, t("pluggy_disabled"), "pluggy_disabled");
   const r = await fetch(`${BASE}/auth`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ clientId, clientSecret }),
   });
-  if (!r.ok) throw new HttpError(502, "Falha ao autenticar no Pluggy", "pluggy_auth");
+  if (!r.ok) throw new HttpError(502, t("pluggy_auth"), "pluggy_auth");
   const data = (await r.json()) as { apiKey: string };
   apiKey = { value: data.apiKey, exp: Date.now() + 100 * 60_000 }; // valid 2h; refresh early
   return data.apiKey;
@@ -56,7 +57,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
     headers: { "X-API-KEY": await key(), "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!r.ok) throw new HttpError(502, `Pluggy ${method} ${path.split("?")[0]} falhou (${r.status})`, "pluggy_error");
+  if (!r.ok) throw new HttpError(502, `${t("pluggy_error")} (${method} ${path.split("?")[0]}: ${r.status})`, "pluggy_error");
   return (await r.json()) as T;
 }
 

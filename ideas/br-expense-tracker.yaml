@@ -1,0 +1,31 @@
+slug: br-expense-tracker
+name: Grana Clara
+priority: 30
+status: queued
+# Brazilian market: the UI is in Portuguese and uses Pluggy (Brazilian Open Finance).
+locale: pt-BR
+pitch: Connect your bank through Open Finance and see where your money goes, with automatic categories and a budget per category.
+audience: Brazilians aged 22–45 with digital bank accounts (Nubank, Inter, Itaú, etc.) who try to track spending in spreadsheets and give up.
+problem: Spreadsheets require entering everything by hand. Bank apps don't combine different accounts or show a simple budget per category.
+pricing:
+  currency: brl
+  monthlyCents: 1490
+  freeTier: 1 bank connection, last 30 days of categorized transactions and a monthly summary.
+  proTier: Unlimited connections, 12 months of history, budgets per category with in-app alerts and monthly AI-generated insights.
+activationEvent: transactions_synced
+features:
+  - Clear consent screen (LGPD) before connecting — what is read (accounts and transactions), that access is read-only and how to disconnect.
+  - Connect a bank with the Pluggy Connect widget (App.connectBank) using the app's connect-token route; store the itemId under the user. Use the sandbox when the stage is not prod (see /api/health).
+  - Sync accounts and transactions (listAccounts and listTransactions from 30 days back on free, 365 on Pro) and store them under USER#<id>; the first completed sync tracks transactions_synced.
+  - Categorization — use Pluggy's category when present and map it to about 12 simple Portuguese categories (Moradia, Mercado, Transporte, Restaurantes, Assinaturas, etc.); the user can recategorize, and the rule applies to the same merchant afterwards.
+  - Monthly dashboard with total income and spending, spending by category and largest expenses.
+  - Budget per category with a progress bar and a warning above 80% (Pro).
+  - Disconnecting a bank removes the item in Pluggy (deleteItem) and deletes the stored transactions.
+  - When Pluggy is not configured (503 pluggy_disabled), offer CSV import (date, description, amount) instead.
+integrations: [pluggy, bedrock, stripe]
+constraints:
+  - The app never asks for or stores bank passwords; connections happen only through the Pluggy widget.
+  - No money movement or payment initiation; read-only.
+  - Amounts are stored as integer cents and displayed in BRL with formatMoney().
+outOfScope:
+  - Pix, payments, investments, income tax, mobile app, email notifications.

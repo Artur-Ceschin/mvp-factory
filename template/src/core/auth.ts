@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { ConflictError, db, id, now } from "./db.js";
 import { SMOKE_PREFIX, track } from "./events.js";
 import { HttpError, json, requireFields, type Req, type Router, type User } from "./http.js";
+import { t } from "./i18n.js";
 import { requireSecret } from "./secrets.js";
 
 const scrypt = promisify(_scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
@@ -83,7 +84,7 @@ export async function authenticate(req: Req): Promise<User | undefined> {
 function normalizeEmail(e: string) {
   const email = e.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200)
-    throw new HttpError(400, "E-mail inválido", "invalid_email");
+    throw new HttpError(400, t("invalid_email"), "invalid_email");
   return email;
 }
 
@@ -91,13 +92,13 @@ export function registerAuthRoutes(r: Router) {
   r.post("/api/auth/signup", async (req) => {
     const body = requireFields(req.body, { email: "string", password: "string" });
     const email = normalizeEmail(body.email);
-    if (body.password.length < 8) throw new HttpError(400, "Senha precisa de 8+ caracteres", "weak_password");
+    if (body.password.length < 8) throw new HttpError(400, t("weak_password"), "weak_password");
     // Factory smoke tests sign up as *@smoke.invalid; those users are excluded from metrics.
     const userId = email.endsWith("@smoke.invalid") ? `${SMOKE_PREFIX}${id()}` : id();
     try {
       await db().put({ ...emailKey(email), userId }, { ifNotExists: true });
     } catch (e) {
-      if (e instanceof ConflictError) throw new HttpError(409, "E-mail já cadastrado", "email_taken");
+      if (e instanceof ConflictError) throw new HttpError(409, t("email_taken"), "email_taken");
       throw e;
     }
     const user: UserItem = {
@@ -119,12 +120,12 @@ export function registerAuthRoutes(r: Router) {
     const hour = new Date().toISOString().slice(0, 13);
     const throttle = await db().get(`THROTTLE#${email}`, hour);
     if (((throttle?.failed as number) ?? 0) >= MAX_FAILED_PER_HOUR)
-      throw new HttpError(429, "Muitas tentativas. Tente mais tarde.", "rate_limited");
+      throw new HttpError(429, t("rate_limited"), "rate_limited");
     const ref = await db().get(emailKey(email).pk, "EMAIL");
     const user = ref ? await db().get<UserItem>(`USER#${ref.userId}`, "PROFILE") : undefined;
     if (!user || !(await verifyPassword(body.password, user.passwordHash))) {
       await db().increment(`THROTTLE#${email}`, hour, { failed: 1 });
-      throw new HttpError(401, "E-mail ou senha incorretos", "invalid_credentials");
+      throw new HttpError(401, t("invalid_credentials"), "invalid_credentials");
     }
     await track("login", user.id);
     return json({ token: await signToken(user.id), user: publicUser(user) });

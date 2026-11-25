@@ -6,7 +6,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import type { Config } from "./config.js";
 import { paths } from "./config.js";
 import { log } from "./exec.js";
-import type { Idea } from "./ideas.js";
+import { formatPrice, type Idea } from "./ideas.js";
 
 export type BuildMode = "build" | "repair" | "iterate";
 
@@ -34,11 +34,6 @@ export function renderPrompt(mode: BuildMode, vars: Record<string, string>) {
   return text;
 }
 
-export function formatPrice(idea: Idea) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: idea.pricing.currency.toUpperCase() }).format(
-    idea.pricing.monthlyCents / 100,
-  );
-}
 
 const ALLOWED_BASH = [
   /^npm (run )?(typecheck|test)( --.*)?$/,

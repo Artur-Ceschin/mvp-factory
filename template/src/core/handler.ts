@@ -7,6 +7,7 @@ import { authenticate, registerAuthRoutes } from "./auth.js";
 import { registerBillingRoutes } from "./billing.js";
 import { registerEventRoutes } from "./events.js";
 import { asset, html, HttpError, json, Router, type Req, type Res } from "./http.js";
+import { formatMoney, locale, t } from "./i18n.js";
 import { secret } from "./secrets.js";
 import baseCss from "./web/base.css";
 import sdkJs from "./web/sdk.txt";
@@ -23,13 +24,8 @@ registerAppRoutes(router);
 const page = () =>
   indexHtml
     .replaceAll("{{APP_NAME}}", process.env.APP_NAME ?? "App")
-    .replaceAll("{{PRICE}}", formatPrice());
-
-function formatPrice() {
-  const cents = Number(process.env.PRICE_CENTS ?? 0);
-  const cur = (process.env.PRICE_CURRENCY ?? "brl").toUpperCase();
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: cur }).format(cents / 100);
-}
+    .replaceAll("{{LANG}}", locale())
+    .replaceAll("{{PRICE}}", formatMoney(Number(process.env.PRICE_CENTS ?? 0), process.env.PRICE_CURRENCY ?? "usd"));
 
 export async function handle(req: Req): Promise<Res> {
   try {
@@ -47,11 +43,11 @@ export async function handle(req: Req): Promise<Res> {
 
     switch (m.route.auth) {
       case "user":
-        if (!req.user) throw new HttpError(401, "Faça login para continuar", "unauthorized");
+        if (!req.user) throw new HttpError(401, t("unauthorized"), "unauthorized");
         break;
       case "pro":
-        if (!req.user) throw new HttpError(401, "Faça login para continuar", "unauthorized");
-        if (req.user.plan !== "pro") throw new HttpError(402, "Recurso do plano Pro", "payment_required");
+        if (!req.user) throw new HttpError(401, t("unauthorized"), "unauthorized");
+        if (req.user.plan !== "pro") throw new HttpError(402, t("payment_required"), "payment_required");
         break;
       case "admin": {
         const token = await secret("ADMIN_TOKEN");
@@ -63,7 +59,7 @@ export async function handle(req: Req): Promise<Res> {
   } catch (e) {
     if (e instanceof HttpError) return json({ error: e.code, message: e.message }, e.status);
     console.error(JSON.stringify({ level: "error", path: req.path, err: String((e as Error)?.stack ?? e) }));
-    return json({ error: "internal", message: "Erro interno" }, 500);
+    return json({ error: "internal", message: t("internal") }, 500);
   }
 }
 
