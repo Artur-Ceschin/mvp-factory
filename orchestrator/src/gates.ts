@@ -1,7 +1,9 @@
 // Validation gates every app must pass before it can be deployed.
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import type { Env } from "./env.js";
 import { log, run, tail } from "./exec.js";
+import { PALETTE_TOKENS } from "./ideas.js";
 import { appFiles, coreDrift, dependencyDrift } from "./scaffold.js";
 
 export interface GateResult {
@@ -28,6 +30,55 @@ const CODE_POLICY: [RegExp, string][] = [
   [/\bfrom\s+["'](?!\.\.?\/|node:)(?!@aws-sdk\/)[^"']+["']/, "only relative, node: and @aws-sdk/* imports are allowed (no new dependencies)"],
 ];
 
+/** The only external host app web files may reference (fonts). */
+export const ALLOWED_WEB_HOSTS = ["fonts.bunny.net"];
+/** Tokens theme.css must define (the palette from SPEC.md plus the two font roles). */
+export const REQUIRED_THEME_TOKENS = [...Object.values(PALETTE_TOKENS), "--font-display", "--font-body"];
+
+// Emoji rendered as emoji (default emoji presentation, or forced with VS16). Plain symbols such
+// as ©, ✓ or → are fine. Emoji typed by users never appear in index.html itself.
+const EMOJI = /\p{Emoji_Presentation}|\p{Extended_Pictographic}\uFE0F/u;
+
+/** Design rules for src/app/web: brand assets wired up, no external hosts, no emoji icons. */
+export function designPolicy(dir: string): string[] {
+  const hits: string[] = [];
+  const web = join(dir, "src/app/web");
+  const files = existsSync(web) ? readdirSync(web).filter((f) => statSync(join(web, f)).isFile()) : [];
+  for (const f of files) {
+    // xmlns="http://www.w3.org/2000/svg" is a namespace identifier, not a request.
+    const src = readFileSync(join(web, f), "utf8").replace(/\sxmlns(:[\w-]+)?=["'][^"']*["']/g, "");
+    const hosts = new Set<string>();
+    for (const m of src.matchAll(/(?:https?:\/\/|["'(=]\s*\/\/)([a-z0-9-]+(?:\.[a-z0-9-]+)+)/gi)) hosts.add(m[1]!.toLowerCase());
+    for (const h of hosts)
+      if (!ALLOWED_WEB_HOSTS.includes(h))
+        hits.push(`src/app/web/${f}: references external host ${h} (only ${ALLOWED_WEB_HOSTS.join(", ")} is allowed; inline assets instead)`);
+  }
+
+  const index = join(web, "index.html");
+  if (existsSync(index)) {
+    const html = readFileSync(index, "utf8");
+    const links = [...html.matchAll(/<link\b[^>]*>/gi)].map((m) => m[0]);
+    const stylesheet = (re: RegExp) => links.some((l) => /rel=["']?stylesheet/i.test(l) && re.test(l));
+    if (!stylesheet(/href=["']\/_base\.css["']/)) hits.push('src/app/web/index.html: must link <link rel="stylesheet" href="/_base.css">');
+    if (!stylesheet(/href=["']\/_theme\.css["']/)) hits.push('src/app/web/index.html: must link <link rel="stylesheet" href="/_theme.css">');
+    if (!stylesheet(/href=["']https:\/\/fonts\.bunny\.net\/css\?/))
+      hits.push("src/app/web/index.html: must load the brand fonts with a fonts.bunny.net stylesheet link (see SPEC.md)");
+    html.split("\n").forEach((line, i) => {
+      const m = EMOJI.exec(line.replace(/<!--[\s\S]*?-->/g, ""));
+      if (m) hits.push(`src/app/web/index.html:${i + 1}: emoji "${m[0]}" used in the UI; use an inline SVG icon instead`);
+    });
+  }
+
+  const themeFile = join(web, "theme.css");
+  if (!existsSync(themeFile)) hits.push("missing src/app/web/theme.css (brand tokens from SPEC.md)");
+  else {
+    const theme = readFileSync(themeFile, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const missing = REQUIRED_THEME_TOKENS.filter((t) => !new RegExp(`${t}\\s*:`).test(theme));
+    if (missing.length) hits.push(`src/app/web/theme.css: must define ${missing.join(", ")}`);
+  }
+  return hits;
+}
+
 function staticChecks(dir: string): GateResult[] {
   const t0 = Date.now();
   const files = appFiles(dir);
@@ -39,6 +90,7 @@ function staticChecks(dir: string): GateResult[] {
     if (/\.(ts|html)$/.test(f) && !f.startsWith("tests/"))
       for (const [re, what] of CODE_POLICY) if (re.test(src)) policyHits.push(`${f}: ${what}`);
   }
+  policyHits.push(...designPolicy(dir));
   const drift = coreDrift(dir);
   const deps = dependencyDrift(dir);
   const required = ["src/app/routes.ts", "src/app/manifest.ts", "src/app/web/index.html", "SPEC.md"].filter(
@@ -66,7 +118,7 @@ async function cmdGate(gate: string, dir: string, cmd: string, args: string[], e
   return { gate, ok: r.code === 0, output: tail(r.output, 8000), ms: r.ms } satisfies GateResult;
 }
 
-export async function validate(dir: string, opts: { packageStage?: string; region?: string } = {}): Promise<GateResult[]> {
+export async function validate(dir: string, opts: { packageStage?: string; region?: string; env?: Pick<Env, "AWS_ACCESS_KEY_ID" | "AWS_SECRET_ACCESS_KEY"> } = {}): Promise<GateResult[]> {
   const results: GateResult[] = staticChecks(dir);
   // Fail fast: no point type-checking code that broke the contract.
   if (results.some((r) => !r.ok)) return results;
@@ -100,8 +152,8 @@ export async function validate(dir: string, opts: { packageStage?: string; regio
     opts.region ?? "us-east-1",
   ], {
     // `package` needs no real credentials; dummy ones stop the SDK from searching for a profile.
-    AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID ?? "AKIAPACKAGEONLY0000",
-    AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY ?? "package-only",
+    AWS_ACCESS_KEY_ID: opts.env?.AWS_ACCESS_KEY_ID ?? "AKIAPACKAGEONLY0000",
+    AWS_SECRET_ACCESS_KEY: opts.env?.AWS_SECRET_ACCESS_KEY ?? "package-only",
   });
   results.push(pkg);
   log(`gate package: ${pkg.ok ? "ok" : "FAILED"}`);

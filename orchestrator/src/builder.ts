@@ -5,10 +5,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import type { Config } from "./config.js";
 import { paths } from "./config.js";
+import { requireFor, type Env } from "./env.js";
 import { log } from "./exec.js";
 import { formatPrice, type Idea } from "./ideas.js";
 
-export type BuildMode = "build" | "repair" | "iterate";
+export type BuildMode = "build" | "repair" | "iterate" | "polish";
 
 export interface BuildTask {
   dir: string;
@@ -83,11 +84,13 @@ export function makePermissionPolicy(dir: string): CanUseTool {
 }
 
 export class ClaudeBuilder implements Builder {
-  constructor(private cfg: Config) {}
+  constructor(
+    private cfg: Config,
+    private env: Env,
+  ) {}
 
   async run(task: BuildTask): Promise<BuildOutcome> {
-    if (!process.env.ANTHROPIC_API_KEY && !process.env.CLAUDE_CODE_OAUTH_TOKEN)
-      throw new Error("ANTHROPIC_API_KEY is not set (or use --dry-run)");
+    requireFor(this.env, "agent");
     const prompt = renderPrompt(task.mode, { PRICE: formatPrice(task.idea), ...task.vars });
     const rules = readFileSync(join(paths.prompts, "rules.md"), "utf8");
     let costUsd = 0;

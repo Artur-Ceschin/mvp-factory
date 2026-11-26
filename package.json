@@ -7,7 +7,7 @@
     "template"
   ],
   "scripts": {
-    "factory": "tsx orchestrator/src/cli.ts",
+    "factory": "tsx --env-file-if-exists=.env orchestrator/src/cli.ts",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },

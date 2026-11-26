@@ -3,6 +3,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { registerAppRoutes } from "../app/routes.js";
 import indexHtml from "../app/web/index.html";
+import themeCss from "../app/web/theme.css";
 import { authenticate, registerAuthRoutes } from "./auth.js";
 import { registerBillingRoutes } from "./billing.js";
 import { registerEventRoutes } from "./events.js";
@@ -11,6 +12,26 @@ import { formatMoney, locale, t } from "./i18n.js";
 import { secret } from "./secrets.js";
 import baseCss from "./web/base.css";
 import sdkJs from "./web/sdk.txt";
+
+/**
+ * Content-Security-Policy for every response. Fonts come only from Bunny Fonts; Pluggy Connect
+ * is the only third-party script/frame (loaded by the SDK for Open Finance apps).
+ */
+export const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://cdn.pluggy.ai",
+  "style-src 'self' 'unsafe-inline' https://fonts.bunny.net",
+  "font-src https://fonts.bunny.net",
+  "img-src 'self' data:",
+  "connect-src 'self' https://*.pluggy.ai",
+  "frame-src https://*.pluggy.ai",
+].join("; ");
+
+export const SECURITY_HEADERS: Record<string, string> = {
+  "content-security-policy": CSP,
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "strict-origin-when-cross-origin",
+};
 
 export const router = new Router();
 router.get("/api/health", () =>
@@ -31,6 +52,7 @@ export async function handle(req: Req): Promise<Res> {
   try {
     if (req.method === "GET" && req.path === "/_sdk.js") return asset(sdkJs, "text/javascript; charset=utf-8");
     if (req.method === "GET" && req.path === "/_base.css") return asset(baseCss, "text/css; charset=utf-8");
+    if (req.method === "GET" && req.path === "/_theme.css") return asset(themeCss, "text/css; charset=utf-8");
 
     const m = router.match(req.method, req.path);
     if (!m) {
@@ -90,11 +112,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
   const res = await handle(toReq(event));
   return {
     statusCode: res.status,
-    headers: {
-      "x-content-type-options": "nosniff",
-      "referrer-policy": "strict-origin-when-cross-origin",
-      ...res.headers,
-    },
+    headers: { ...SECURITY_HEADERS, ...res.headers },
     body: res.body,
   };
 }

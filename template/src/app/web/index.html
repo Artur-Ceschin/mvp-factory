@@ -4,91 +4,212 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{{APP_NAME}}</title>
+  <title>{{APP_NAME}} — notes that keep up with you</title>
   <meta name="description" content="Your notes, simple and fast." />
+  <link rel="preconnect" href="https://fonts.bunny.net" />
+  <link rel="stylesheet" href="https://fonts.bunny.net/css?family=fraunces:500,600,700|manrope:400,500,600,700&display=swap" />
   <link rel="stylesheet" href="/_base.css" />
+  <link rel="stylesheet" href="/_theme.css" />
 </head>
 <body>
-  <div class="container">
-    <nav>
-      <strong>{{APP_NAME}}</strong>
-      <div class="row">
+  <!-- Inline SVG icon sprite (no emoji or icon fonts) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-logo" viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z" /><path d="M14 4v5h5M8 13h8M8 17h5" /></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 5 14h6l-1 7 8-11h-6z" /></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6" /><path d="m20 20-4.5-4.5" /></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7" /></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z" /><path d="M9 10h6M9 14h6M9 18h3" /></symbol>
+  </svg>
+
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="/"><svg class="icon"><use href="#i-logo" /></svg>{{APP_NAME}}</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-optional" href="#how">How it works</a>
+        <a class="nav-optional" href="#pricing">Pricing</a>
         <span id="plan" class="badge hidden"></span>
-        <button id="logout" class="secondary hidden">Log out</button>
-      </div>
-    </nav>
+        <button id="logout" class="btn-ghost btn-sm hidden">Log out</button>
+      </nav>
+    </div>
+  </header>
 
-    <section id="landing">
-      <h1>Capture what matters in seconds.</h1>
-      <p class="muted">Free for up to 5 notes. Unlimited with Pro for {{PRICE}}/month.</p>
-      <div class="card" style="max-width:420px">
-        <label for="email">Email</label>
-        <input id="email" type="email" autocomplete="email" />
-        <label for="password">Password</label>
-        <input id="password" type="password" autocomplete="current-password" />
-        <div class="row" style="margin-top:12px">
-          <button id="signup">Create free account</button>
-          <button id="login" class="secondary">Log in</button>
+  <main>
+    <div id="landing">
+      <section class="container hero grid-2">
+        <div class="hero-copy fade-in">
+          <span class="eyebrow">Notes for busy minds</span>
+          <h1>Write it down <em>before</em> it slips away.</h1>
+          <p class="lead">{{APP_NAME}} opens in under a second, saves as you type, and keeps every idea one search away. No folders to manage.</p>
+          <ul class="checklist">
+            <li><svg class="icon"><use href="#i-check" /></svg>Free for your first 5 notes</li>
+            <li><svg class="icon"><use href="#i-check" /></svg>Unlimited notes and export with Pro — {{PRICE}}/month</li>
+          </ul>
         </div>
+        <div class="card signup-card fade-in" aria-labelledby="signup-title">
+          <div class="stack">
+            <h2 id="signup-title" style="font-size:var(--step-2)">Start writing in seconds</h2>
+            <div class="field">
+              <label for="email">Email</label>
+              <input id="email" type="email" autocomplete="email" placeholder="you@company.com" />
+            </div>
+            <div class="field">
+              <label for="password">Password</label>
+              <input id="password" type="password" autocomplete="current-password" placeholder="At least 8 characters" />
+            </div>
+            <button id="signup" class="btn-lg btn-block">Create free account</button>
+            <button id="login" class="btn-secondary btn-block">I already have an account</button>
+            <p class="hint">No credit card. Delete your account and data anytime.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="how" class="section-tight" style="background:var(--color-surface)">
+        <div class="container stack" style="--stack-gap:var(--space-l)">
+          <div>
+            <span class="eyebrow">How it works</span>
+            <h2>Three steps. No learning curve.</h2>
+          </div>
+          <div class="grid steps">
+            <div class="step"><h3>Capture</h3><p class="muted">Type a thought and press Enter. It is saved before you look up.</p></div>
+            <div class="step"><h3>Find</h3><p class="muted">Your newest notes stay on top, so yesterday's idea is always in reach.</p></div>
+            <div class="step"><h3>Keep</h3><p class="muted">Go Pro to keep unlimited notes and export them whenever you want.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section container grid-2">
+        <div class="preview" aria-label="Product preview">
+          <div class="stack" style="--stack-gap:var(--space-xs)">
+            <div class="card preview-note"><strong>Q3 offsite — book the venue by Friday</strong><time>Today, 9:41</time></div>
+            <div class="card preview-note"><strong>Pricing idea: annual plan with two months free</strong><time>Yesterday</time></div>
+            <div class="card preview-note"><strong>Call Marta about the onboarding copy</strong><time>Mon</time></div>
+          </div>
+        </div>
+        <div class="stack">
+          <span class="eyebrow">Built for speed</span>
+          <h2>Everything you need. Nothing you'll trip over.</h2>
+          <div class="grid" style="--grid-min:200px">
+            <div class="stack" style="--stack-gap:var(--space-2xs)"><span class="icon-tile"><svg class="icon"><use href="#i-bolt" /></svg></span><h4>Instant</h4><p class="muted small">Loads fast on any phone, even on a weak connection.</p></div>
+            <div class="stack" style="--stack-gap:var(--space-2xs)"><span class="icon-tile"><svg class="icon"><use href="#i-lock" /></svg></span><h4>Private</h4><p class="muted small">Your notes are yours. We never read, share or sell them.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="pricing" class="section-tight container stack" style="--stack-gap:var(--space-l)">
+        <div><span class="eyebrow">Pricing</span><h2>Start free. Upgrade when it sticks.</h2></div>
+        <div class="pricing">
+          <div class="card plan">
+            <h3>Free</h3>
+            <div class="price">$0</div>
+            <ul class="checklist"><li><svg class="icon"><use href="#i-check" /></svg>Up to 5 notes</li><li><svg class="icon"><use href="#i-check" /></svg>Works on every device</li></ul>
+          </div>
+          <div class="card card-feature plan">
+            <div class="split"><h3>Pro</h3><span class="badge badge-accent">Most popular</span></div>
+            <div><span class="price">{{PRICE}}</span><span class="muted"> / month</span></div>
+            <ul class="checklist"><li><svg class="icon"><use href="#i-check" /></svg>Unlimited notes</li><li><svg class="icon"><use href="#i-check" /></svg>Export everything</li><li><svg class="icon"><use href="#i-check" /></svg>Cancel anytime</li></ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-tight container container-narrow">
+        <span class="eyebrow">FAQ</span>
+        <h2>Questions, answered</h2>
+        <details><summary>Can I try it without paying?</summary><p>Yes. The free plan keeps up to 5 notes with no time limit and no card required.</p></details>
+        <details><summary>What happens if I cancel Pro?</summary><p>Your notes stay readable. You just can't add more than 5 until you upgrade again.</p></details>
+        <details><summary>How do I delete my data?</summary><p>One click in the app deletes your account and every note, permanently.</p></details>
+      </section>
+    </div>
+
+    <section id="app" class="section-tight container container-narrow hidden">
+      <div class="stack" style="--stack-gap:var(--space-m)">
+        <div class="split">
+          <h2 style="margin:0">Your notes</h2>
+          <span id="count" class="muted small num"></span>
+        </div>
+        <form id="composer" class="composer">
+          <label for="text" class="visually-hidden">New note</label>
+          <input id="text" placeholder="What's on your mind?" maxlength="2000" autocomplete="off" />
+          <button id="add" type="submit">Save</button>
+        </form>
+        <div id="notes" class="stack" aria-live="polite">
+          <span class="skeleton skeleton-block"></span>
+          <span class="skeleton skeleton-block"></span>
+        </div>
+        <div id="empty" class="empty-state hidden">
+          <svg class="icon"><use href="#i-note" /></svg>
+          <h3>Nothing here yet</h3>
+          <p>Write your first note above. It saves the moment you press Enter.</p>
+        </div>
+        <div id="upsell" class="card card-feature hidden">
+          <div class="split">
+            <div><h3>Keep every idea</h3><p class="muted" style="margin:0">Unlimited notes and export for {{PRICE}}/month.</p></div>
+            <button id="upgrade">Upgrade to Pro</button>
+          </div>
+        </div>
+        <p class="small muted">We store only your email and your notes. <button id="delete" class="link-button" type="button">Delete my account</button></p>
       </div>
     </section>
+  </main>
 
-    <section id="app" class="hidden">
-      <div class="card">
-        <div class="row">
-          <input id="text" placeholder="New note" style="flex:1" />
-          <button id="add">Add</button>
-        </div>
-      </div>
-      <div id="notes"></div>
-      <div id="upsell" class="card hidden">
-        <h2>Unlock unlimited notes</h2>
-        <button id="upgrade">Go Pro — {{PRICE}}/month</button>
-      </div>
-      <p class="muted"><a href="#" id="delete">Delete my account</a></p>
-    </section>
-  </div>
+  <footer class="footer">
+    <div class="container split"><span>&copy; {{APP_NAME}}</span><span>Made for people with more ideas than time.</span></div>
+  </footer>
+
   <script src="/_sdk.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
+    const fmt = new Intl.DateTimeFormat(document.documentElement.lang, { dateStyle: "medium", timeStyle: "short" });
     async function render() {
       const user = await App.auth.me();
       $("landing").classList.toggle("hidden", !!user);
       $("app").classList.toggle("hidden", !user);
       $("logout").classList.toggle("hidden", !user);
       $("plan").classList.toggle("hidden", !user);
+      document.querySelectorAll(".nav-optional").forEach((a) => a.classList.toggle("hidden", !!user));
       if (!user) return;
       $("plan").textContent = user.plan === "pro" ? "Pro" : "Free";
+      $("plan").className = user.plan === "pro" ? "badge badge-primary" : "badge";
       $("upsell").classList.toggle("hidden", user.plan === "pro");
       const { notes } = await App.api("/api/notes");
-      $("notes").innerHTML = "";
-      for (const n of notes) {
-        const el = document.createElement("div");
-        el.className = "card";
-        el.textContent = n.text;
-        $("notes").appendChild(el);
-      }
+      $("notes").replaceChildren(
+        ...notes.map((n) => {
+          const el = document.createElement("article");
+          el.className = "card note fade-in";
+          const text = document.createElement("div");
+          text.textContent = n.text;
+          const time = document.createElement("time");
+          time.textContent = fmt.format(new Date(n.createdAt));
+          el.append(text, time);
+          return el;
+        }),
+      );
+      $("empty").classList.toggle("hidden", notes.length > 0);
+      $("count").textContent = user.plan === "pro" ? `${notes.length} notes` : `${notes.length} of 5 free notes`;
     }
-    async function doAuth(kind) {
+    async function doAuth(kind, button) {
+      button.setAttribute("aria-busy", "true");
       try { await App.auth[kind]($("email").value, $("password").value); await render(); }
       catch (e) { App.toast(e.message, "error"); }
+      finally { button.removeAttribute("aria-busy"); }
     }
-    $("signup").onclick = () => doAuth("signup");
-    $("login").onclick = () => doAuth("login");
+    $("signup").onclick = (ev) => doAuth("signup", ev.currentTarget);
+    $("login").onclick = (ev) => doAuth("login", ev.currentTarget);
     $("logout").onclick = () => { App.auth.logout(); render(); };
-    $("add").onclick = async () => {
+    $("composer").onsubmit = async (ev) => {
+      ev.preventDefault();
+      if (!$("text").value.trim()) return;
       try { await App.api("/api/notes", { body: { text: $("text").value } }); $("text").value = ""; await render(); }
       catch (e) { if (e.status === 402) $("upsell").classList.remove("hidden"); App.toast(e.message, "error"); }
     };
     $("upgrade").onclick = () => App.checkout().catch((e) => App.toast(e.message, "error"));
-    $("delete").onclick = async (ev) => {
-      ev.preventDefault();
-      if (!confirm("Delete your account and all your data? This cannot be undone.")) return;
+    $("delete").onclick = async () => {
+      if (!confirm("Delete your account and all your notes? This cannot be undone.")) return;
       await App.api("/api/auth/me", { method: "DELETE" });
       App.auth.logout();
       render();
     };
-    if (new URLSearchParams(location.search).get("checkout") === "success") App.toast("Subscription active! 🎉");
+    if (new URLSearchParams(location.search).get("checkout") === "success") App.toast("You're on Pro. Thanks for the support!", "success");
     render();
   </script>
 </body>

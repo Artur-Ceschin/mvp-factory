@@ -12,8 +12,10 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.331",
+    "@anthropic-ai/sdk": "^1.14.0",
     "@aws-sdk/client-cloudformation": "^3.700.0",
     "@aws-sdk/client-ssm": "^3.700.0",
+    "playwright": "^1.65.1",
     "yaml": "^2.6.0",
     "zod": "^4.0.0"
   },

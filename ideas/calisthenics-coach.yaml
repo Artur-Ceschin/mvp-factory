@@ -26,3 +26,19 @@ constraints:
   - Free tier enforced server-side (1 workout generation per week).
 outOfScope:
   - Own videos, nutrition, community, native app, wearable integrations.
+brand:
+  personality: [athletic, raw, confident, disciplined]
+  voice: Short, direct coaching cues. Second person, active verbs, no hype words; talks like a coach who respects your time.
+  palette:
+    background: "#121417"   # dark charcoal
+    surface: "#1C1F24"
+    text: "#F2F0EA"         # chalk white
+    muted: "#A3A9B1"
+    primary: "#C6F432"      # electric lime
+    primaryInk: "#121417"
+    accent: "#FF7A1A"       # warm orange
+  typography:
+    display: Big Shoulders Display
+    body: DM Sans
+  references: [Nike Training Club, Whoop, Strava]
+  avoid: [stock gym photos, neon overload, emoji icons]

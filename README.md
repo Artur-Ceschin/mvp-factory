@@ -24,9 +24,9 @@ ideas/*.yaml ──► build (Claude agent) ──► gates ──✗──► r
 |---|---|
 | `template/` | Base app every MVP inherits: email/password auth (JWT), Stripe Checkout + webhooks, analytics, AI via Bedrock, Brazilian Open Finance via Pluggy, account deletion (GDPR/LGPD), and a single-page app served by the Lambda itself. |
 | `template/src/core` | **Protected.** The agent cannot change it (checked byte for byte). Core improvements reach every app with `factory sync-core`. |
-| `template/src/app` | The only area the agent writes: `routes.ts`, `manifest.ts` (activation event + smoke tests), `web/index.html`, `tests/app*.test.ts`. |
+| `template/src/app` | The only area the agent writes: `routes.ts`, `manifest.ts` (activation event, smoke tests, demo data), `web/index.html`, `web/theme.css` (brand tokens), `tests/app*.test.ts`. |
 | `orchestrator/` | The `factory` CLI: build, validate, ship, score, iterate, kill. |
-| `orchestrator/prompts` | Agent rules and prompts (build, repair, iterate). |
+| `orchestrator/prompts` | Agent rules and prompts (build, repair, iterate, polish). |
 | `registry.json` | Portfolio state (status, URLs, agent spend, scorecards). Committed by the workflow. |
 | `reports/latest.md` | Report of the last run (also written to the GitHub Actions summary). |
 
@@ -38,11 +38,44 @@ messages, AI output and price formatting.
 ### Validation gates (`factory validate <slug>`)
 1. **core-integrity**: core, `serverless.yml`, configs and dependencies are identical to the template.
 2. **secret-scan**: no Stripe/AWS/Anthropic keys in the code.
-3. **code-policy**: no `eval`, `child_process`, `innerHTML` with interpolation, new dependencies, or secrets read from `process.env`.
+3. **code-policy**: no `eval`, `child_process`, `innerHTML` with interpolation, new dependencies, or secrets read from `process.env`; plus the design rules (see Design).
 4. **typecheck**, **tests** (core tests, app tests, and the manifest's smoke checks in memory), **bundle** (< 2 MB), **package** (`osls package`).
+5. **design review** (see Design), when enabled.
 
 When a gate fails, the agent gets the output and tries to fix it (`maxRepairAttempts`). When an
 iteration on a live app fails the gates, the previous code is restored and nothing is deployed.
+
+### Design
+Every app has to look like a polished product with its own identity, not a template. This is
+enforced in three layers:
+
+1. **Brand identity per idea.** `ideas/<slug>.yaml` has a required `brand`: `personality` (3–5
+   adjectives), `voice`, a `palette` (`background`, `surface`, `text`, `muted`, `primary`,
+   `primaryInk`, `accent`), `typography` (`display`, `body`, optional `mono`; Google Fonts families
+   served through [Bunny Fonts](https://fonts.bunny.net)), `references` (the quality bar, never
+   copied) and `avoid` (clichés). The schema rejects palettes whose text/background,
+   text/surface, muted/background or primaryInk/primary contrast is below WCAG AA (4.5:1). The
+   brand becomes the "Visual identity" section of the app's `SPEC.md`, including the exact font link.
+2. **Design system in the core.** `template/src/core/web/base.css` (served at `/_base.css`) is a
+   token-based system: color tokens named after the palette, `--font-display/body/mono`, a fluid
+   type scale (`--step-*`), spacing, radii, shadows and motion (honoring `prefers-reduced-motion`),
+   plus refined components (buttons, inputs, cards, badges, nav, toasts, empty states, skeletons).
+   Each app sets its brand in `src/app/web/theme.css` (served at `/_theme.css`). A
+   Content-Security-Policy allows fonts only from `fonts.bunny.net`, and the **code-policy** gate
+   fails on other external hosts, on a missing `/_base.css`, `/_theme.css` or Bunny Fonts link, on
+   missing theme tokens, and on emoji used as icons (icons are inline SVG).
+3. **Design-review gate.** After the other gates pass, the factory runs the bundled app in-process
+   (in-memory DB, stubbed AI, a demo user seeded with the manifest's `demo` requests) and takes
+   Playwright screenshots of the landing and the logged-in screen at 1440×900 and 390×844, saved
+   to `apps/<slug>/.factory/screenshots/` (git-ignored). A Claude vision model
+   (`design.reviewModel`) scores them against the brand with a strict rubric (brand fidelity,
+   typography, layout, color, polish, copy, mobile, "premium") and lists issues with fixes. Below
+   `design.minScore` (default 8), the builder runs a **polish** session (`orchestrator/prompts/polish.md`)
+   that can open the screenshots, then all gates and the review run again, up to
+   `design.maxPolishAttempts` times; after that the build fails. Each score is stored in
+   `registry.json` (`builds[].designScore`, `designScores`) and shown in the report. The review is
+   skipped in `--dry-run`, when `design.enabled` is false, and without `ANTHROPIC_API_KEY`.
+   Locally, install the browser once with `pnpm exec playwright install chromium`.
 
 ### Agent sandbox
 The agent (Claude Agent SDK) can only write to `src/app/**` and `tests/app*.test.ts`, can only run
@@ -101,7 +134,7 @@ pnpm factory ship calisthenics-coach         # needs AWS credentials
 Create `ideas/<slug>.yaml` following the existing ones (schema in `orchestrator/src/ideas.ts`).
 The fields with the most influence on the result are `features` (concrete scope),
 `pricing.freeTier/proTier` (limits enforced server-side), `activationEvent` (the moment of real
-value), `constraints` and `locale`. Lower `priority` is built first; `status: paused` skips it.
+value), `constraints`, `locale` and `brand` (the visual identity). Lower `priority` is built first; `status: paused` skips it.
 
 ## Costs and limits
 - AWS: everything is on-demand (Lambda, HTTP API, on-demand DynamoDB); close to zero without traffic. The bootstrap adds a budget alert.

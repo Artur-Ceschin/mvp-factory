@@ -3,8 +3,10 @@ import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { ClaudeBuilder, MockBuilder } from "./builder.js";
-import { loadConfig, paths } from "./config.js";
+import { loadConfig, paths, setRoot } from "./config.js";
 import { deploy as deployStage, stackUrl } from "./deploy.js";
+import { ClaudeDesignReviewer, type DesignReviewer } from "./design.js";
+import { loadEnv, requireFor, type Capability, type Env } from "./env.js";
 import { failureReport, passed, validate } from "./gates.js";
 import { loadIdea, loadIdeas } from "./ideas.js";
 import {
@@ -52,13 +54,19 @@ const { values: flags, positionals } = parseArgs({
 });
 
 const [cmd, slug] = positionals;
-const cfg = loadConfig();
 const dry = flags["dry-run"]!;
-const ctx: Ctx = {
-  cfg,
-  builder: dry ? new MockBuilder() : new ClaudeBuilder(cfg),
-  deploy: !dry,
-  version: process.env.GITHUB_SHA?.slice(0, 7) ?? `local-${Date.now()}`,
+
+/** What each command needs from the environment (checked up front, skipped with --dry-run). */
+const NEEDS: Record<string, Capability[]> = {
+  run: ["agent", "aws"],
+  build: ["agent"],
+  // iterate scores the live app and ships the result, so it needs AWS as well.
+  iterate: ["agent", "aws"],
+  ship: ["aws"],
+  deploy: ["aws"],
+  verify: ["aws"],
+  score: ["aws"],
+  kill: ["aws"],
 };
 
 function need<T>(v: T | undefined, what: string): T {
@@ -69,17 +77,37 @@ function need<T>(v: T | undefined, what: string): T {
   return v;
 }
 
-function publish(steps: StepReport[]) {
+function publishReport(env: Env, steps: StepReport[]) {
   const md = renderReport(steps);
   mkdirSync(paths.reports, { recursive: true });
   writeFileSync(join(paths.reports, "latest.md"), md);
-  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+  if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, md);
   console.log(`\n${md}`);
   return steps.every((s) => s.ok);
 }
 
 async function main() {
   if (flags.help || !cmd) return console.log(HELP), true;
+  // Validate the environment and the command's requirements before doing any work.
+  const env = loadEnv();
+  setRoot(env.FACTORY_ROOT);
+  const cfg = loadConfig(paths.config, env);
+  if (!dry) requireFor(env, NEEDS[cmd] ?? [], { configRegion: cfg.aws.region });
+  // The design review needs a model that can't be faked: skipped in dry runs and without an API key.
+  let reviewer: DesignReviewer | undefined;
+  if (!dry && cfg.design.enabled) {
+    if (env.ANTHROPIC_API_KEY) reviewer = new ClaudeDesignReviewer(cfg, env.ANTHROPIC_API_KEY);
+    else if (["run", "build", "iterate"].includes(cmd)) console.warn("design review skipped: ANTHROPIC_API_KEY is not set");
+  }
+  const ctx: Ctx = {
+    cfg,
+    env,
+    reviewer,
+    builder: dry ? new MockBuilder() : new ClaudeBuilder(cfg, env),
+    deploy: !dry,
+    version: env.GITHUB_SHA?.slice(0, 7) ?? `local-${Date.now()}`,
+  };
+  const publish = (steps: StepReport[]) => publishReport(env, steps);
   switch (cmd) {
     case "list": {
       const reg = readRegistry();
@@ -94,7 +122,7 @@ async function main() {
       return publish([await buildApp(ctx, idea, { force: flags.force || readRegistry()[idea.slug]?.status === "build-failed" })]);
     }
     case "validate": {
-      const gates = await validate(appDir(need(slug, "<slug>")), { region: cfg.aws.region });
+      const gates = await validate(appDir(need(slug, "<slug>")), { region: cfg.aws.region, env });
       for (const g of gates) console.log(`${g.ok ? "✅" : "❌"} ${g.gate} (${g.ms}ms)`);
       if (!passed(gates)) console.log(`\n${failureReport(gates)}`);
       return passed(gates);
@@ -104,7 +132,7 @@ async function main() {
     case "deploy": {
       const idea = loadIdea(need(slug, "<slug>"));
       const stage = need(flags.stage, "--stage");
-      const url = await deployStage(cfg, idea, appDir(idea.slug), stage, ctx.version);
+      const url = await deployStage(cfg, env, idea, appDir(idea.slug), stage, ctx.version);
       updateApp(idea.slug, (r) => (r.urls[stage] = url));
       console.log(url);
       return true;

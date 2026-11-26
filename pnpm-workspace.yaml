@@ -1,6 +1,10 @@
+# Hoisted so generated apps in apps/<slug> (not workspace packages) resolve the template's dependencies.
+nodeLinker: hoisted
 packages:
   - orchestrator
   - template
 allowBuilds:
   es5-ext: false
   esbuild: false
+minimumReleaseAgeExclude:
+  - '@anthropic-ai/sdk@1.14.0'

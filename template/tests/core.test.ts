@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { setPlan } from "../src/core/auth.js";
 import { verifyStripeSignature } from "../src/core/billing.js";
 import { manifest } from "../src/app/manifest.js";
-import { router } from "../src/core/handler.js";
+import { handler, router } from "../src/core/handler.js";
 import { call, resetDb, signup } from "./helpers.js";
 
 beforeEach(resetDb);
@@ -24,6 +24,31 @@ describe("core", () => {
     expect((await call("GET", "/_sdk.js")).raw).toContain("window.App");
     expect((await call("GET", "/_base.css")).status).toBe(200);
     expect((await call("GET", "/some/deep/link")).status).toBe(200);
+  });
+
+  it("serves the app theme and links the design system", async () => {
+    const theme = await call("GET", "/_theme.css");
+    expect(theme.status).toBe(200);
+    expect(theme.raw).toContain("--color-primary");
+    const home = (await call("GET", "/")).raw;
+    for (const href of ["/_base.css", "/_theme.css", "https://fonts.bunny.net/"]) expect(home).toContain(href);
+  });
+
+  it("sends a Content-Security-Policy that only allows Bunny Fonts and Pluggy", async () => {
+    const res = await handler({
+      rawPath: "/",
+      headers: { host: "test.local" },
+      isBase64Encoded: false,
+      requestContext: { http: { method: "GET" } },
+    } as unknown as Parameters<typeof handler>[0]);
+    const headers = (res as { headers: Record<string, string> }).headers;
+    const csp = headers["content-security-policy"]!;
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("font-src https://fonts.bunny.net");
+    expect(csp).toContain("style-src 'self' 'unsafe-inline' https://fonts.bunny.net");
+    expect(csp).toContain("script-src 'self' 'unsafe-inline' https://cdn.pluggy.ai");
+    expect(csp).toContain("frame-src https://*.pluggy.ai");
+    expect(headers["x-content-type-options"]).toBe("nosniff");
   });
 
   it("unknown api route is 404 json", async () => {

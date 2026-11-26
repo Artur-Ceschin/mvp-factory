@@ -19,4 +19,15 @@ export interface AppManifest {
   activationEvent: string;
   /** Checks the factory runs against every deployed stage. Keep them fast and side-effect-light. */
   smoke: SmokeCheck[];
+  /**
+   * Requests the design review sends as a freshly signed-up user (in memory, before taking the
+   * logged-in screenshots) so the main screen shows realistic, specific data instead of an empty state.
+   */
+  demo?: DemoRequest[];
+}
+
+export interface DemoRequest {
+  method: "POST" | "PUT" | "PATCH";
+  path: string;
+  body?: unknown;
 }

@@ -29,3 +29,19 @@ constraints:
   - Amounts are stored as integer cents and displayed in BRL with formatMoney().
 outOfScope:
   - Pix, payments, investments, income tax, mobile app, email notifications.
+brand:
+  personality: [trustworthy, clear, optimistic, Brazilian]
+  voice: Warm, plain Brazilian Portuguese with no banking jargon; reassuring about money, specific about numbers.
+  palette:
+    background: "#FBF6EA"   # cream
+    surface: "#FFFFFF"
+    text: "#12372A"         # deep forest green
+    muted: "#55675C"
+    primary: "#1F5135"      # forest green
+    primaryInk: "#FBF6EA"
+    accent: "#F4B315"       # sunflower yellow
+  typography:
+    display: Bricolage Grotesque
+    body: Instrument Sans
+  references: [Nubank, Copilot Money, Monzo]
+  avoid: [bank-blue clichés, dollar-sign icons, cluttered tables]

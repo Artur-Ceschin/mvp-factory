@@ -1,0 +1,48 @@
+/*
+ * APP FILE — the app's brand, served at /_theme.css after /_base.css.
+ * The builder agent sets these tokens from SPEC.md's "Visual identity" and adds app-specific styles.
+ * Required tokens: --color-bg, --color-surface, --color-text, --color-muted, --color-primary,
+ * --color-primary-ink, --color-accent, --font-display, --font-body.
+ */
+:root {
+  --color-bg: #f6f3ec;
+  --color-surface: #fffdf8;
+  --color-text: #1d1b17;
+  --color-muted: #625d53;
+  --color-primary: #1f3d34;
+  --color-primary-ink: #f6f3ec;
+  --color-accent: #d0632f;
+
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* ---- App-specific styles ---- */
+h1, h2 { font-weight: 600; font-variation-settings: "SOFT" 50, "opsz" 144; }
+h1 em { font-style: italic; color: var(--color-accent); }
+
+.hero { padding-block: var(--space-2xl) var(--space-3xl); }
+.hero-copy { display: grid; gap: var(--space-m); align-content: center; }
+.signup-card { padding: var(--space-l); }
+.signup-card .stack { --stack-gap: var(--space-s); }
+
+.preview { position: relative; padding: var(--space-m); background: var(--color-primary); border-radius: var(--radius-xl); box-shadow: var(--shadow-l); }
+.preview .card { box-shadow: none; }
+.preview-note { display: grid; gap: var(--space-3xs); }
+.preview-note time { font-size: var(--step--2); color: var(--color-muted); }
+
+.steps { counter-reset: step; }
+.step::before {
+  counter-increment: step; content: "0" counter(step);
+  display: block; margin-bottom: var(--space-xs);
+  font-family: var(--font-display); font-size: var(--step-2); color: var(--color-accent);
+}
+
+.pricing { display: grid; gap: var(--space-m); grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); max-width: 820px; }
+.plan { display: grid; gap: var(--space-s); align-content: start; }
+
+.note { display: grid; gap: var(--space-3xs); }
+.note time { font-size: var(--step--2); color: var(--color-muted); }
+.composer { display: flex; gap: var(--space-xs); }
+.composer input { flex: 1; }

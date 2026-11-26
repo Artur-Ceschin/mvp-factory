@@ -3,3 +3,4 @@ dist
 .serverless
 .env*
 ideas/ci-dry-run.yaml
+!.env.example

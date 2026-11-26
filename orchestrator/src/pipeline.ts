@@ -2,8 +2,10 @@
 import { cpSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Builder, BuildMode } from "./builder.js";
+import type { Builder, BuildMode, BuildTask } from "./builder.js";
 import type { Config } from "./config.js";
+import { designLoop, polishVars, type DesignReviewer } from "./design.js";
+import type { Env } from "./env.js";
 import { deploy, getSecret, remove } from "./deploy.js";
 import { log } from "./exec.js";
 import { failureReport, passed, validate, type GateResult } from "./gates.js";
@@ -15,7 +17,12 @@ import { verify, type SmokeResult } from "./verify.js";
 
 export interface Ctx {
   cfg: Config;
+  env: Env;
   builder: Builder;
+  /** Design review after the gates pass; undefined skips it (dry runs, no ANTHROPIC_API_KEY, design.enabled: false). */
+  reviewer?: DesignReviewer;
+  /** Overrides the validation gates (tests). */
+  validate?: (dir: string) => Promise<GateResult[]>;
   /** Skip AWS entirely (no deploy, no scoring). */
   deploy: boolean;
   version: string;
@@ -28,25 +35,53 @@ export interface StepReport {
   detail: string;
 }
 
-/** Runs the agent, then validates; feeds gate failures back to the agent up to maxRepairAttempts. */
+/**
+ * Runs the agent, then the gates (feeding failures back up to maxRepairAttempts), then — when a
+ * design reviewer is configured — the design review with up to maxPolishAttempts polish sessions.
+ */
 async function buildLoop(ctx: Ctx, idea: Idea, mode: BuildMode, vars: Record<string, string> = {}) {
   const dir = appDir(idea.slug);
+  const gatesOf = ctx.validate ?? ((d: string) => validate(d, { region: ctx.cfg.aws.region, env: ctx.env }));
   let cost = 0;
   let attempts = 0;
-  let gates: GateResult[] = [];
-  const first = await ctx.builder.run({ dir, idea, mode, vars });
-  cost += first.costUsd;
-  log(`agent (${mode}): ${first.summary.split("\n")[0]?.slice(0, 160)}`);
-  for (;;) {
-    gates = await validate(dir, { region: ctx.cfg.aws.region });
-    if (passed(gates) || attempts >= ctx.cfg.builder.maxRepairAttempts) break;
+  const agent = async (task: BuildTask) => {
     attempts++;
-    log(`gates failed (${gates.filter((g) => !g.ok).map((g) => g.gate).join(", ")}); repair attempt ${attempts}`);
-    const r = await ctx.builder.run({ dir, idea, mode: "repair", vars: { FAILURES: failureReport(gates) } });
+    const r = await ctx.builder.run(task);
     cost += r.costUsd;
-  }
-  return { ok: passed(gates), gates, cost, attempts: attempts + 1, summary: first.summary };
+    return r;
+  };
+  const gateLoop = async () => {
+    let gates = await gatesOf(dir);
+    for (let repair = 1; !passed(gates) && repair <= ctx.cfg.builder.maxRepairAttempts; repair++) {
+      log(`gates failed (${failedGates(gates)}); repair attempt ${repair}`);
+      await agent({ dir, idea, mode: "repair", vars: { FAILURES: failureReport(gates) } });
+      gates = await gatesOf(dir);
+    }
+    return gates;
+  };
+
+  const first = await agent({ dir, idea, mode, vars });
+  log(`agent (${mode}): ${first.summary.split("\n")[0]?.slice(0, 160)}`);
+  let gates = await gateLoop();
+  const result = (ok: boolean, failure: string, designScores: number[] = []) =>
+    ({ ok, gates, cost, attempts, summary: first.summary, failure, designScores });
+  if (!passed(gates)) return result(false, failedGates(gates));
+  if (!ctx.reviewer) return result(true, "");
+
+  const design = await designLoop({
+    design: ctx.cfg.design,
+    review: () => ctx.reviewer!.review(dir, idea),
+    polish: async (last) => {
+      await agent({ dir, idea, mode: "polish", vars: polishVars(dir, last, ctx.cfg.design.minScore) });
+    },
+    revalidate: async () => passed((gates = await gateLoop())),
+  });
+  return result(design.ok, design.ok ? "" : design.reason, design.scores);
 }
+
+const failedGates = (gates: GateResult[]) => gates.filter((g) => !g.ok).map((g) => g.gate).join(", ");
+const designNote = (scores: number[]) => (scores.length ? `, design ${scores.at(-1)}/10` : "");
+const designFields = (scores: number[]) => (scores.length ? { designScore: scores.at(-1)!, designScores: scores } : {});
 
 export async function buildApp(ctx: Ctx, idea: Idea, opts: { force?: boolean } = {}): Promise<StepReport> {
   log(`building ${idea.slug}`);
@@ -55,15 +90,15 @@ export async function buildApp(ctx: Ctx, idea: Idea, opts: { force?: boolean } =
   const r = await buildLoop(ctx, idea, "build");
   updateApp(idea.slug, (rec) => {
     rec.status = r.ok ? (rec.status === "live" ? "live" : "built") : "build-failed";
-    rec.builds.push({ at: new Date().toISOString(), kind: "build", ok: r.ok, costUsd: r.cost, attempts: r.attempts, note: r.summary.slice(0, 500) });
+    rec.builds.push({ at: new Date().toISOString(), kind: "build", ok: r.ok, costUsd: r.cost, attempts: r.attempts, note: r.summary.slice(0, 500), ...designFields(r.designScores) });
   });
   return {
     slug: idea.slug,
     step: "build",
     ok: r.ok,
     detail: r.ok
-      ? `built in ${r.attempts} attempt(s), $${r.cost.toFixed(2)}`
-      : `failed after ${r.attempts} attempt(s): ${r.gates.filter((g) => !g.ok).map((g) => g.gate).join(", ")}`,
+      ? `built in ${r.attempts} attempt(s), $${r.cost.toFixed(2)}${designNote(r.designScores)}`
+      : `failed after ${r.attempts} attempt(s): ${r.failure}`,
   };
 }
 
@@ -88,9 +123,14 @@ export async function iterateApp(ctx: Ctx, idea: Idea, score: Scorecard, daily: 
   }
   rmSync(backup, { recursive: true, force: true });
   updateApp(idea.slug, (rec) =>
-    rec.builds.push({ at: new Date().toISOString(), kind: "iterate", ok: r.ok, costUsd: r.cost, attempts: r.attempts, note: r.summary.slice(0, 500) }),
+    rec.builds.push({ at: new Date().toISOString(), kind: "iterate", ok: r.ok, costUsd: r.cost, attempts: r.attempts, note: r.summary.slice(0, 500), ...designFields(r.designScores) }),
   );
-  return { slug: idea.slug, step: "iterate", ok: r.ok, detail: r.ok ? `iteration validated ($${r.cost.toFixed(2)})` : "iteration failed validation; reverted" };
+  return {
+    slug: idea.slug,
+    step: "iterate",
+    ok: r.ok,
+    detail: r.ok ? `iteration validated ($${r.cost.toFixed(2)}${designNote(r.designScores)})` : `iteration failed (${r.failure}); reverted`,
+  };
 }
 
 /** Deploys every stage in order; stops at the first stage whose smoke tests fail. */
@@ -100,7 +140,7 @@ export async function shipApp(ctx: Ctx, idea: Idea): Promise<StepReport> {
   const results: Record<string, SmokeResult[]> = {};
   for (const stage of ctx.cfg.aws.stages) {
     try {
-      const url = await deploy(ctx.cfg, idea, dir, stage, ctx.version);
+      const url = await deploy(ctx.cfg, ctx.env, idea, dir, stage, ctx.version);
       updateApp(idea.slug, (r) => (r.urls[stage] = url));
       results[stage] = await verify(url, dir);
     } catch (e) {
@@ -227,12 +267,12 @@ export function renderReport(steps: StepReport[]) {
     "",
     "## Portfolio",
     "",
-    "| app | status | urls | builds | spend |",
-    "|---|---|---|---:|---:|",
-    ...Object.values(reg).map(
-      (r) =>
-        `| ${r.slug} | ${r.status} | ${Object.entries(r.urls).map(([s, u]) => `[${s}](${u})`).join(" ")} | ${r.builds.length} | $${r.builds.reduce((n, b) => n + b.costUsd, 0).toFixed(2)} |`,
-    ),
+    "| app | status | urls | builds | design | spend |",
+    "|---|---|---|---:|---:|---:|",
+    ...Object.values(reg).map((r) => {
+      const design = [...r.builds].reverse().find((b) => b.designScore !== undefined)?.designScore;
+      return `| ${r.slug} | ${r.status} | ${Object.entries(r.urls).map(([s, u]) => `[${s}](${u})`).join(" ")} | ${r.builds.length} | ${design === undefined ? "—" : `${design}/10`} | $${r.builds.reduce((n, b) => n + b.costUsd, 0).toFixed(2)} |`;
+    }),
     "",
     "## Latest scorecards",
     "",

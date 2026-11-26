@@ -20,4 +20,7 @@ summary so the next scorecard can confirm or reject it. Keep existing users' dat
 never change the pk/sk layout of data that already exists. Track any new key step with
 `track()` (server-side) or `App.track("ui_...")` (browser).
 
+Keep the visual identity and the design quality intact: the iteration is screenshot and
+reviewed like a new build.
+
 When done, `npm run typecheck` and `npm test` must both pass.

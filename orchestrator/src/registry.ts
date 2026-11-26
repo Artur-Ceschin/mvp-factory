@@ -27,7 +27,18 @@ export interface AppRecord {
   liveSince?: string;
   urls: Record<string, string>;
   version?: string;
-  builds: { at: string; kind: "build" | "iterate"; ok: boolean; costUsd: number; attempts: number; note?: string }[];
+  builds: {
+    at: string;
+    kind: "build" | "iterate";
+    ok: boolean;
+    costUsd: number;
+    attempts: number;
+    note?: string;
+    /** Final design-review score (1–10), when the review ran. */
+    designScore?: number;
+    /** Every design-review score of this build, in order (initial review, then after each polish). */
+    designScores?: number[];
+  }[];
   lastScore?: Scorecard;
   scoreHistory?: Scorecard[];
 }

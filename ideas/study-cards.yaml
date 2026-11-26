@@ -25,3 +25,20 @@ constraints:
   - No PDF upload; pasted text only.
 outOfScope:
   - PDF or image upload, deck sharing, mobile app, audio.
+brand:
+  personality: [calm, focused, scholarly, warm]
+  voice: Quiet and encouraging, like a good tutor. Plain words, short sentences, never childish or pushy.
+  palette:
+    background: "#FAF6EF"   # warm paper
+    surface: "#FFFFFF"
+    text: "#1B2A41"         # ink navy
+    muted: "#5C6878"
+    primary: "#C2462F"      # coral
+    primaryInk: "#FFFFFF"
+    accent: "#7A9E7E"       # sage
+  typography:
+    display: Fraunces
+    body: Source Sans 3
+    mono: JetBrains Mono
+  references: [Linear, Readwise, Notion]
+  avoid: [cartoon mascots, childish gamification, purple gradients]

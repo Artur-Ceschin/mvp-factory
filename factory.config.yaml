@@ -32,6 +32,15 @@ score:
   # This many paid conversions in the window => "scale".
   scaleIfPaidAtLeast: 3
 
+design:
+  # After the gates pass, screenshots of the running app (desktop + mobile, landing + logged in)
+  # are reviewed by a vision model against SPEC.md's visual identity. Below minScore, the builder
+  # gets a "polish" session with the issues, up to maxPolishAttempts times; then the build fails.
+  enabled: true
+  reviewModel: claude-opus-5-5
+  minScore: 8
+  maxPolishAttempts: 2
+
 # When true, kill candidates are removed from AWS automatically (tables are retained).
 # When false they are only flagged in the report and you run `factory kill <slug> --confirm`.
 autoKill: false
